@@ -162,6 +162,9 @@ pub fn use_window_persistence() {
             if let Some(s) = placement::read(&win) {
                 store.set_setting(KEY, &s.encode());
             }
+            if closing {
+                let _ = store.peek(|db| db.checkpoint());
+            }
             return;
         }
         #[allow(unreachable_code)]

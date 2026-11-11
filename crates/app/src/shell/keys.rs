@@ -51,7 +51,7 @@ document.addEventListener('contextmenu', (e) => {
   const el = e.target.closest('[data-ts]');
   if (!el || e.target.closest('input, textarea')) return;
   e.preventDefault();
-  send('tsmenu:' + el.dataset.ts + ':' + e.clientX + ':' + e.clientY);
+  send('tsmenu:' + el.dataset.ts + ':' + e.clientX + ':' + e.clientY + ':' + (el.dataset.evId || ''));
 }, true);
 // Clicks inside rendered Markdown: links open in the default browser, checkboxes toggle
 // the note's source (handled by the notes widget).
@@ -98,9 +98,10 @@ pub fn use_key_bridge() {
                     "undo" => ui.undo(&store),
                     m if m.starts_with("tsmenu:") => {
                         let p: Vec<&str> = m.split(':').collect();
-                        if let [_, ts, x, y] = p.as_slice() {
+                        if let [_, ts, x, y, rest @ ..] = p.as_slice() {
+                            let ev = rest.first().and_then(|v| v.parse::<i64>().ok());
                             if let (Ok(ts), Ok(x), Ok(y)) = (ts.parse(), x.parse(), y.parse()) {
-                                ui.time_menu.set(Some((ts, x, y)));
+                                ui.time_menu.set(Some((ts, x, y, ev)));
                             }
                         }
                     }
@@ -117,6 +118,8 @@ pub fn use_key_bridge() {
                             }
                         } else if *ui.palette.peek() {
                             ui.palette.set(false);
+                        } else if *crate::shell::dashboard::EDITING.peek() {
+                            crate::shell::dashboard::stop();
                         } else if *ui.view.peek() != View::Overview {
                             ui.view.set(View::Overview);
                         }

@@ -12,6 +12,8 @@ pub fn LayoutEditor() -> Element {
     let slots = store.read(layout::load);
     let n = slots.len();
     let s_reset = store.clone();
+    let store_e = store.clone();
+    let ui = crate::state::use_ui();
 
     // Apply a change to a copy of the layout and save it.
     let edit = {
@@ -29,6 +31,7 @@ pub fn LayoutEditor() -> Element {
             div { class: "panel-head",
                 h3 { "Dashboard" }
                 div { class: "grow" }
+                button { class: "btn", onclick: move |_| super::dashboard::start(&store_e, ui), "Edit on dashboard" }
                 button { class: "btn", onclick: move |_| { let _ = s_reset.write(|db| layout::reset(db)); }, "Reset" }
             }
             div { class: "layout-list",

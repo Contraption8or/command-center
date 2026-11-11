@@ -1,6 +1,6 @@
 //! Event editor panel. Changes save immediately; synced events are shown read-only.
 
-use super::{JUST_CREATED, SELECTED};
+use super::{delete_with_undo, EventColors, JUST_CREATED, SELECTED};
 use crate::icons::{self, Icon};
 use crate::state::use_ui;
 use crate::store::use_store;
@@ -31,6 +31,10 @@ pub fn EventEditor(event: Event, autofocus: bool) -> Element {
                 if !event.location.is_empty() { div { "{event.location}" } }
                 if !event.notes.is_empty() { div { class: "muted small", "{event.notes}" } }
                 div { class: "muted small", "Synced from {event.source}. Edit it there." }
+                div { class: "pd-field",
+                    span { class: "pd-label", "Color" }
+                    EventColors { id, color: event.color.clone() }
+                }
             }
         };
     }
@@ -127,6 +131,10 @@ pub fn EventEditor(event: Event, autofocus: bool) -> Element {
                     }
                 }
             }
+            div { class: "pd-field",
+                span { class: "pd-label", "Color" }
+                EventColors { id, color: event.color.clone() }
+            }
             label { class: "pd-field",
                 span { class: "pd-label", "Location" }
                 input { class: "pd-input", value: "{location}", placeholder: "Discord, YouTube, an address…",
@@ -143,16 +151,7 @@ pub fn EventEditor(event: Event, autofocus: bool) -> Element {
                     "{event.start_date().format(\"%A, %B %-d\")} · {event.time_label(h12)}" }
                 div { class: "grow" }
                 button { class: "btn danger",
-                    onclick: move |_| {
-                        if let Ok(Some(ev)) = s_del.write(|db| events::delete(db, id)) {
-                            *SELECTED.write() = None;
-                            let label = ev.title.clone();
-                            ui.notify_undo(format!("Deleted “{label}”"), move |s| {
-                                let _ = s.write(|db| events::restore(db, &ev));
-                                *SELECTED.write() = Some(ev.id);
-                            });
-                        }
-                    },
+                    onclick: move |_| { delete_with_undo(&s_del, ui, id); },
                     "Delete"
                 }
             }

@@ -4,7 +4,7 @@
 
 use crate::state::{use_ui, Ui};
 use crate::store::use_store;
-use crate::widgets::events::load_zones;
+use crate::widgets::events::{delete_with_undo, load_zones, EventColors};
 use cc_core::tz::{self, discord_tag, DiscordStyle};
 use chrono::{Local, TimeZone};
 use dioxus::prelude::*;
@@ -17,13 +17,16 @@ fn copy(ui: Ui, text: &str, what: &str) {
 }
 
 #[component]
-pub fn TimeMenu(ts: i64, x: f64, y: f64) -> Element {
+pub fn TimeMenu(ts: i64, x: f64, y: f64, event: Option<i64>) -> Element {
     let store = use_store();
     let mut ui = use_ui();
     let h12 = *ui.h12.read();
     let now = chrono::Utc::now().timestamp();
     let local = Local.timestamp_opt(ts, 0).single().map(|d| d.naive_local()).unwrap_or_default();
     let zones = store.read(load_zones);
+    // Right-clicked on a calendar event: offer colour and delete above the copy items.
+    let ev = event.and_then(|id| store.read(|db| cc_core::model::events::get(db, id)));
+    let s_del = store.clone();
 
     // Plain-text version for places that don't render Discord tags.
     let fmt = |t: chrono::NaiveDateTime| {
@@ -39,13 +42,25 @@ pub fn TimeMenu(ts: i64, x: f64, y: f64) -> Element {
     let all_text = lines.join("\n");
 
     // Keep the menu on screen near the pointer.
-    let style = format!("left: min({x}px, calc(100vw - 330px)); top: min({y}px, calc(100vh - 340px));");
+    let h = if ev.is_some() { 450 } else { 340 };
+    let style = format!("left: min({x}px, calc(100vw - 330px)); top: min({y}px, calc(100vh - {h}px));");
 
     rsx! {
         div { class: "menu-scrim",
             onclick: move |_| ui.time_menu.set(None),
             oncontextmenu: move |e| { e.prevent_default(); ui.time_menu.set(None); },
             div { class: "time-menu", style: "{style}", onclick: move |e| e.stop_propagation(),
+                if let Some(e) = ev.clone() {
+                    div { class: "tm-head tm-event", "{e.title}" }
+                    div { class: "tm-colors", EventColors { id: e.id, color: e.color.clone() } }
+                    if e.is_manual() {
+                        button { class: "tm-item danger",
+                            onclick: move |_| { delete_with_undo(&s_del, ui, e.id); let mut m = ui.time_menu; m.set(None); },
+                            span { class: "tm-label", "Delete event" }
+                        }
+                    }
+                    div { class: "tm-sep" }
+                }
                 div { class: "tm-head", "Copy for Discord" }
                 for s in DiscordStyle::MENU {
                     {

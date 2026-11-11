@@ -24,6 +24,12 @@ thread_local! {
 }
 
 fn main() {
+    #[cfg(windows)]
+    if let Ok(dir) = cc_core::db::default_data_dir() {
+        if !single_instance::claim(&dir) {
+            return;
+        }
+    }
     let mut db = match Db::open_default() {
         Ok(db) => db,
         Err(e) => fatal(&format!("Could not open the database.\n\n{e:#}")),
@@ -74,4 +80,42 @@ fn fatal(msg: &str) -> ! {
         .set_description(msg)
         .show();
     std::process::exit(1);
+}
+
+/// One copy per data folder: a second launch brings the running window to the front and
+/// exits, so two copies never edit the same data with different views of it.
+#[cfg(windows)]
+mod single_instance {
+    use windows_sys::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS};
+    use windows_sys::Win32::System::Threading::CreateMutexW;
+    use windows_sys::Win32::UI::WindowsAndMessaging::{FindWindowW, IsIconic, SetForegroundWindow, ShowWindow, SW_RESTORE};
+
+    fn wide(s: &str) -> Vec<u16> {
+        s.encode_utf16().chain(std::iter::once(0)).collect()
+    }
+
+    /// Claim the data folder. Returns false if another copy already holds it (and focuses
+    /// that copy's window).
+    pub fn claim(data_dir: &std::path::Path) -> bool {
+        // FNV-1a of the folder path keeps the mutex name short and valid.
+        let key = data_dir.to_string_lossy().to_lowercase();
+        let hash = key.bytes().fold(0xcbf29ce484222325u64, |h, b| (h ^ b as u64).wrapping_mul(0x100000001b3));
+        let name = wide(&format!(r"Local\CommandCenter-{hash:016x}"));
+        // The handle is deliberately never closed: Windows releases it when the process exits.
+        let handle = unsafe { CreateMutexW(std::ptr::null(), 0, name.as_ptr()) };
+        if handle.is_null() || unsafe { GetLastError() } != ERROR_ALREADY_EXISTS {
+            return true;
+        }
+        let title = wide(if cfg!(debug_assertions) { "Command Center (dev)" } else { "Command Center" });
+        let hwnd = unsafe { FindWindowW(std::ptr::null(), title.as_ptr()) };
+        if !hwnd.is_null() {
+            unsafe {
+                if IsIconic(hwnd) != 0 {
+                    ShowWindow(hwnd, SW_RESTORE);
+                }
+                SetForegroundWindow(hwnd);
+            }
+        }
+        false
+    }
 }

@@ -4,7 +4,7 @@
 //! Pointer handling runs in a small script on the grid (exact pixel maths, a live preview
 //! while dragging) and sends the result back here as `create:…`, `place:…` or `select:…`.
 
-use super::{create_at, SELECTED};
+use super::{color_var, create_at, SELECTED};
 use crate::state::use_ui;
 use crate::store::use_store;
 use cc_core::model::events::{self, Event};
@@ -229,6 +229,9 @@ pub fn WeekView(anchor: NaiveDate) -> Element {
                             button {
                                 key: "{e.id}",
                                 class: if selected == Some(e.id) { "wk-chip sel" } else { "wk-chip" },
+                                style: "{color_var(&e)}",
+                                "data-ev-id": "{e.id}",
+                                "data-manual": if e.is_manual() { "1" } else { "0" },
                                 "data-ts": "{cc_core::tz::unix(e.starts_at)}",
                                 onclick: move |_| { let next = if SELECTED() == Some(e.id) { None } else { Some(e.id) }; *SELECTED.write() = next; },
                                 "{e.title}"
@@ -272,7 +275,7 @@ pub fn WeekView(anchor: NaiveDate) -> Element {
                                                 div {
                                                     key: "{e.id}",
                                                     class: "{class}",
-                                                    style: "top: {top}px; height: {height}px; left: calc({left}% + 2px); width: calc({w}% - 6px);",
+                                                    style: "top: {top}px; height: {height}px; left: calc({left}% + 2px); width: calc({w}% - 6px); {color_var(&e)}",
                                                     "data-ev-id": "{e.id}",
                                                     "data-start": "{s}",
                                                     "data-end": "{en}",
@@ -315,6 +318,7 @@ mod tests {
             location: String::new(),
             notes: String::new(),
             source: "manual".into(),
+            color: None,
         }
     }
 

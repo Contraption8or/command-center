@@ -12,11 +12,13 @@ use std::{cell::RefCell, rc::Rc};
 pub struct Store {
     db: Rc<RefCell<Db>>,
     rev: Signal<u64>,
+    /// The last failed write, shown as an error toast by the shell, so nothing fails silently.
+    pub error: Signal<Option<String>>,
 }
 
 impl Store {
     pub fn new(db: Db) -> Self {
-        Self { db: Rc::new(RefCell::new(db)), rev: Signal::new(0) }
+        Self { db: Rc::new(RefCell::new(db)), rev: Signal::new(0), error: Signal::new(None) }
     }
 
     /// Read from the database and subscribe the current component to future writes.
@@ -33,6 +35,10 @@ impl Store {
     /// Mutate, then notify every subscribed component.
     pub fn write<R>(&self, f: impl FnOnce(&mut Db) -> anyhow::Result<R>) -> anyhow::Result<R> {
         let out = f(&mut self.db.borrow_mut());
+        if let Err(e) = &out {
+            let mut err = self.error;
+            err.set(Some(format!("{e:#}")));
+        }
         let mut rev = self.rev;
         rev += 1;
         out

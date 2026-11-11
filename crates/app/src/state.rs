@@ -56,7 +56,7 @@ pub struct Ui {
     /// Minutes since the epoch, refreshed every ~30 s (for "now" displays).
     pub clock: Signal<i64>,
     /// Open right-click time menu: (unix timestamp, x, y).
-    pub time_menu: Signal<Option<(i64, f64, f64)>>,
+    pub time_menu: Signal<Option<(i64, f64, f64, Option<i64>)>>,
     pub palette: Signal<bool>,
     /// `Some(prefill)` while the quick-add box is open.
     pub quick_add: Signal<Option<String>>,

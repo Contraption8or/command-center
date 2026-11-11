@@ -56,6 +56,9 @@ pub fn MonthView(anchor: NaiveDate) -> Element {
                                     button {
                                         key: "{e.id}",
                                         class: if selected == Some(e.id) { "m-ev sel" } else if e.all_day { "m-ev allday" } else { "m-ev" },
+                                        style: "{super::color_var(&e)}",
+                                        "data-ev-id": "{e.id}",
+                                        "data-manual": if e.is_manual() { "1" } else { "0" },
                                         "data-ts": "{cc_core::tz::unix(e.starts_at)}",
                                         title: "{e.title}",
                                         ondoubleclick: move |ev| ev.stop_propagation(),

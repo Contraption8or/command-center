@@ -157,6 +157,7 @@ fn EventRow(event: Event, compact: bool) -> Element {
         button {
             class: "{class}",
             "data-row": "",
+            "data-ev-id": "{id}",
             "data-ts": "{cc_core::tz::unix(event.starts_at)}",
             onclick: move |_| {
                 if compact {
@@ -167,6 +168,7 @@ fn EventRow(event: Event, compact: bool) -> Element {
                     *SELECTED.write() = next;
                 }
             },
+            span { class: "ev-dot", style: "{color_var(&event)}" }
             span { class: if event.all_day { "ev-time allday" } else { "ev-time" }, "{time}" }
             span { class: "ev-title", "{event.title}" }
             if !event.location.is_empty() { span { class: "ev-loc", "{event.location}" } }
@@ -354,4 +356,59 @@ fn heading(day: NaiveDate, today: NaiveDate) -> String {
         1 => "Tomorrow".into(),
         _ => day.format("%A").to_string(),
     }
+}
+
+/// Inline CSS for an event's colour (`--ec`), empty for the default accent.
+pub(crate) fn color_var(e: &Event) -> String {
+    e.color.as_deref().map(|c| format!("--ec: {c};")).unwrap_or_default()
+}
+
+/// Colour swatches for one event: "Default" (the theme accent) plus the shared palette.
+#[component]
+pub(crate) fn EventColors(id: i64, color: Option<String>) -> Element {
+    let store = use_store();
+    let set = move |c: Option<&'static str>| {
+        let _ = store.write(|db| events::set_color(db, id, c));
+    };
+    let set2 = set.clone();
+    rsx! {
+        div { class: "swatches",
+            button {
+                class: if color.is_none() { "swatch default on" } else { "swatch default" },
+                title: "Default",
+                onclick: move |_| set2(None),
+            }
+            for c in cc_core::model::projects::COLORS {
+                {
+                    let set = set.clone();
+                    rsx! {
+                        button {
+                            key: "{c}",
+                            class: if color.as_deref() == Some(c) { "swatch on" } else { "swatch" },
+                            style: "background: {c}",
+                            title: "{c}",
+                            onclick: move |_| set(Some(c)),
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Delete a manual event, with an undo toast. Returns whether anything was deleted.
+pub(crate) fn delete_with_undo(store: &crate::store::Store, ui: crate::state::Ui, id: i64) -> bool {
+    let Ok(Some(ev)) = store.write(|db| events::delete(db, id)) else { return false };
+    if SELECTED.peek().as_ref() == Some(&id) {
+        *SELECTED.write() = None;
+    }
+    let label = ev.title.clone();
+    ui.notify_undo(format!("Deleted “{label}”"), move |s| {
+        if let Err(e) = s.write(|db| events::restore(db, &ev)) {
+            ui.error(format!("Could not restore: {e}"));
+            return;
+        }
+        *SELECTED.write() = Some(ev.id);
+    });
+    true
 }

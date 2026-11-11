@@ -28,6 +28,8 @@ pub struct Event {
     pub notes: String,
     /// `manual`, or the key of a synced source such as `google`.
     pub source: String,
+    /// Hex colour like `#4ade80`; `None` = the theme accent.
+    pub color: Option<String>,
 }
 
 impl Event {
@@ -96,7 +98,7 @@ pub fn time_range(s: NaiveTime, e: NaiveTime, h12: bool) -> String {
 impl Event {
 }
 
-const SELECT: &str = "SELECT id, title, starts_at, ends_at, all_day, location, notes, source FROM events";
+const SELECT: &str = "SELECT id, title, starts_at, ends_at, all_day, location, notes, source, color FROM events";
 
 fn from_row(r: &Row) -> rusqlite::Result<Event> {
     let start: String = r.get(2)?;
@@ -110,6 +112,7 @@ fn from_row(r: &Row) -> rusqlite::Result<Event> {
         location: r.get(5)?,
         notes: r.get(6)?,
         source: r.get(7)?,
+        color: r.get(8)?,
     })
 }
 
@@ -241,6 +244,13 @@ pub fn input_of(e: &Event) -> EventInput {
     }
 }
 
+/// Set or clear (`None`) an event's colour. Works for synced events too: colour is local only.
+pub fn set_color(db: &Db, id: i64, color: Option<&str>) -> Result<()> {
+    let color = color.filter(|c| c.len() == 7 && c.starts_with('#') && c[1..].chars().all(|ch| ch.is_ascii_hexdigit()));
+    db.conn.execute("UPDATE events SET color = ?1 WHERE id = ?2", params![color, id])?;
+    Ok(())
+}
+
 pub fn delete(db: &Db, id: i64) -> Result<Option<Event>> {
     let ev = get(db, id).filter(Event::is_manual);
     if ev.is_some() {
@@ -251,8 +261,8 @@ pub fn delete(db: &Db, id: i64) -> Result<Option<Event>> {
 
 pub fn restore(db: &Db, e: &Event) -> Result<()> {
     db.conn.execute(
-        "INSERT INTO events(id,title,starts_at,ends_at,all_day,location,notes,source) VALUES (?1,?2,?3,?4,?5,?6,?7,'manual')",
-        params![e.id, e.title, ts(e.starts_at), e.ends_at.map(ts), e.all_day, e.location, e.notes],
+        "INSERT INTO events(id,title,starts_at,ends_at,all_day,location,notes,source,color) VALUES (?1,?2,?3,?4,?5,?6,?7,'manual',?8)",
+        params![e.id, e.title, ts(e.starts_at), e.ends_at.map(ts), e.all_day, e.location, e.notes, e.color],
     )?;
     Ok(())
 }
@@ -336,5 +346,32 @@ mod place_tests {
         assert_eq!(ts(get(&db, id).unwrap().ends_at.unwrap()), "2026-11-14T00:00:00");
         place(&db, id, d("2026-11-13"), 600, 600).unwrap();
         assert_eq!(ts(get(&db, id).unwrap().ends_at.unwrap()), "2026-11-13T10:15:00", "minimum 15 minutes");
+    }
+}
+
+#[cfg(test)]
+mod color_tests {
+    use super::*;
+
+    #[test]
+    fn colors_set_clear_and_survive_restore() {
+        let db = Db::open_in_memory().unwrap();
+        let input = EventInput {
+            title: "Stream".into(), date: NaiveDate::from_ymd_opt(2026, 11, 14).unwrap(),
+            start: NaiveTime::from_hms_opt(20, 0, 0), end: None, end_date: None,
+            location: String::new(), notes: String::new(),
+        };
+        let id = add(&db, &input).unwrap();
+        assert_eq!(get(&db, id).unwrap().color, None);
+        set_color(&db, id, Some("#f472b6")).unwrap();
+        assert_eq!(get(&db, id).unwrap().color.as_deref(), Some("#f472b6"));
+        set_color(&db, id, Some("red; drop table")).unwrap();
+        assert_eq!(get(&db, id).unwrap().color, None, "only #rrggbb is stored");
+        set_color(&db, id, Some("#4ade80")).unwrap();
+        update(&db, id, &input_of(&get(&db, id).unwrap())).unwrap();
+        assert_eq!(get(&db, id).unwrap().color.as_deref(), Some("#4ade80"), "editing keeps the colour");
+        let e = delete(&db, id).unwrap().unwrap();
+        restore(&db, &e).unwrap();
+        assert_eq!(get(&db, id).unwrap().color.as_deref(), Some("#4ade80"));
     }
 }

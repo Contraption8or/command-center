@@ -66,14 +66,18 @@ cargo test --workspace             # unit tests (all core logic is tested withou
 ## Overview and window
 
 - **Overview** (`Ctrl+0`): a grid with one card per module. Click ↗ on a card, its icon in the side rail, or `Ctrl+1…6` to open the module's full view. `Esc` goes back.
-- **Customize the dashboard** in **Settings → Dashboard** (or `Ctrl+K` → *Customize dashboard*):
-  - **Width:** Small (¼), Medium (½), Large (⅔) or Full.
-  - **Height:** Short, Normal or Tall.
-  - **Order:** move cards with ↑ ↓.
-  - **Hide / Show** any card. **Reset** restores the defaults.
+- **Customize the dashboard** by clicking the ✎ pencil in the top bar of the overview (or `Ctrl+K` → *Customize dashboard*). The cards stay live while you arrange them, so you see exactly what you'll get:
+  - **Move:** drag a card anywhere. The others reflow around it as you go.
+  - **Resize:** drag a card's right edge, bottom edge or corner. It snaps to grid slots, from 3 to 12 columns wide and 1 to 4 rows tall; the corner of the card header shows its current size, e.g. `4 × 2`.
+  - **Hide** a card with ×. Hidden cards appear as **+ Name** buttons in the top bar; click one to bring it back.
+  - **Reset** restores the defaults, and **Done** (or `Esc`) leaves edit mode. Changes save as you make them.
+  - **Settings → Dashboard** has the same controls as a list (preset widths and heights, ↑ ↓ to reorder).
   - The side rail and the `Ctrl+number` shortcuts keep their fixed order, so muscle memory doesn't change when you rearrange cards.
+  - Below 1150 px of window width, cards fall back to half or full width so they stay readable.
 - **Fills any window size:** cards share the full width and height of the window and scroll inside when content is longer. Text never grows with the window: on wide windows the gaps and padding open up instead, and lists show more items. To make everything bigger or smaller, set **Settings → Appearance → Interface size** (90–150%, default 100%).
 - **The window remembers** its size, position and maximized state between sessions. If it was last on a monitor that's no longer connected, it reopens centered on your main screen.
+- **One copy at a time:** opening Command Center while it's already running brings the open window to the front instead of starting a second copy.
+- **Saving:** every change is written to disk the moment you make it, and closing the app folds everything into the main database file. If a save ever fails, an error toast says so.
 - **The title bar matches the theme.** On Windows 11 its colour, text and border follow dark or light mode, so it blends into the app while keeping native snapping, resizing and the window buttons. On Windows 10 only the dark or light frame changes.
 - **No loading screens:** everything is read from the local database instantly.
 
@@ -110,7 +114,8 @@ cargo test --workspace             # unit tests (all core logic is tested withou
 - **Times:**
   - Moving the start keeps the duration.
   - An end time before the start runs past midnight, so a 10 PM–1 AM stream works.
-- **Delete:** with Undo.
+- **Color:** pick one of eight colors (or Default, the theme accent) in the editor or from the right-click menu. Week blocks, month entries and the agenda dot all use it.
+- **Delete:** in the editor or from the right-click menu, with Undo.
 - **Quick add:** use the `e` prefix, for example `e Dentist @fri 9:15-10`. See [Quick-add syntax](#quick-add-syntax).
 
 #### Timezones
@@ -124,7 +129,7 @@ The panel to the right of the calendar converts times for the people you work wi
 
 #### Copy a time for Discord
 
-**Right-click any time** to copy it for Discord. This works on events in the week and month grids, agenda rows, the editor's date line, and any row in the timezone panel.
+**Right-click any time** to copy it for Discord. This works on events in the week and month grids, agenda rows, the editor's date line, and any row in the timezone panel. Right-clicking an event also offers its **colors** and **Delete event** (manual events only) above the copy options.
 
 | Option | Copies | Discord shows (in each reader's own time zone) |
 |---|---|---|
@@ -229,7 +234,7 @@ Chat with Claude about your plans (`Ctrl+7`, the ✦ icon in the rail, or `Ctrl+
 - **Stop** cancels a reply in progress. **Retry** resends after an error. **New chat** starts fresh.
 - The header shows tokens used this chat and an estimated cost at list prices.
 - Chats are not saved: closing the app or starting a new chat clears them.
-- The ✦ card on the overview (hidden by default; show it in Settings → Dashboard) has a quick "Ask Claude" box.
+- The ✦ card on the overview (hidden by default; show it from the dashboard's edit mode or Settings → Dashboard) has a quick "Ask Claude" box.
 
 **What gets sent, and the cost**
 
@@ -291,7 +296,8 @@ e Rent due @2026-12-01              all-day event (no time given)
 | `Ctrl+Shift+L` | Toggle light / dark |
 | `Ctrl+Z` | Undo the last delete while its toast is showing |
 | Right-click a time | Copy it as a Discord timestamp (or as text for every zone) |
-| `Esc` | Leave a text field → close an overlay → back to the overview |
+| Right-click an event | Recolor or delete it, or copy its time |
+| `Esc` | Leave a text field → close an overlay → leave dashboard edit mode → back to the overview |
 | `↑` `↓` `Enter` | Move and run in the palette |
 
 **Task lists** (select a row by clicking its empty space or with `Tab`):
@@ -392,7 +398,7 @@ command-center/
       src/layout.rs             overview layout (order, size, visibility)
       src/store.rs              Store: DB handle + change signal
       src/state.rs              Ui signals, View, Command, Action, toasts with undo
-      src/shell/                rail, top bar, grid, palette, quick add, settings, keys, layout editor, time menu
+      src/shell/                rail, top bar, grid, dashboard edit mode, palette, quick add, settings, keys, layout editor, time menu
       assets/calendar.css       week/month grid, timezone panel and time-menu styles
       assets/assistant.css      Claude chat, proposal cards
       src/widgets/              one folder per module + REGISTRY
@@ -444,7 +450,7 @@ Example: a *Video pipeline* widget (script → record → edit → published).
    ```
 5. **Register it.** In `crates/app/src/widgets/mod.rs`, add `pub mod pipeline;` and `&pipeline::DEF` to `REGISTRY`.
    - Its position in the list sets its place in the side rail and its `Ctrl+<number>` shortcut.
-   - It's appended to everyone's dashboard automatically, and can be moved or hidden in Settings → Dashboard.
+   - It's appended to everyone's dashboard automatically, and can be moved, resized or hidden from the dashboard's edit mode or Settings → Dashboard.
 
 How widget code runs:
 

@@ -646,3 +646,28 @@ kbd {
 }
 .update-banner > .icon { color: var(--accent); }
 .update-banner .grow { flex: 1; }
+.time-menu .tm-head.tm-event { color: var(--text); font-weight: 600; text-transform: none; letter-spacing: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tm-colors { padding: 4px 10px 8px; }
+.tm-item.danger .tm-label { color: var(--bad); }
+.swatch.default { background: var(--accent); background-image: linear-gradient(135deg, transparent 45%, var(--surface) 45%, var(--surface) 55%, transparent 55%); }
+
+/* ---- dashboard edit mode ------------------------------------------------ */
+.dash-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.dash-hidden { display: inline-flex; align-items: center; gap: 4px; color: var(--text-2); border-style: dashed; }
+.dash-hidden svg { width: 14px; height: 14px; }
+.grid.editing > .card { position: relative; cursor: grab; user-select: none; outline: 1.5px dashed color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: -1px; transition: outline-color .1s; }
+.grid.editing > .card:hover { outline-color: var(--accent); }
+.grid.editing .card-body { pointer-events: none; opacity: .85; }
+.grid.editing .card-head .open { opacity: 1; }
+.grid.busy, .grid.busy * { cursor: grabbing !important; }
+.grid.editing > .card.dragging { z-index: 20; box-shadow: 0 12px 32px rgba(0,0,0,.35); outline: 2px solid var(--accent); opacity: .96; }
+.grid.editing > .card.resizing { outline: 2px solid var(--accent); }
+.dash-size { font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.dash-rz { position: absolute; z-index: 2; }
+.dash-rz.x { top: 12px; bottom: 12px; right: -4px; width: 10px; cursor: ew-resize; }
+.dash-rz.y { left: 12px; right: 12px; bottom: -4px; height: 10px; cursor: ns-resize; }
+.dash-rz.xy { right: -2px; bottom: -2px; width: 18px; height: 18px; cursor: nwse-resize;
+  background: linear-gradient(135deg, transparent 50%, var(--accent) 50%, var(--accent) 60%, transparent 60%, transparent 70%, var(--accent) 70%, var(--accent) 80%, transparent 80%); border-bottom-right-radius: 12px; }
+.grid.busy .dash-rz.x, .grid.busy .dash-rz.y { cursor: inherit; }
+.top-edit { opacity: .7; }
+.top-edit:hover { opacity: 1; }

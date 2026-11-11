@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 const MIGRATIONS: &[&str] = &[
     include_str!("migrations/001_init.sql"),
     include_str!("migrations/002_task_steps.sql"),
+    include_str!("migrations/003_event_color.sql"),
 ];
 
 /// Environment variable that overrides the data directory (handy for testing).
@@ -69,6 +70,9 @@ impl Db {
              PRAGMA journal_mode = WAL;
              PRAGMA synchronous = NORMAL;",
         )?;
+        // Wait for a lock instead of failing at once if another connection (a second copy
+        // of the app, a backup) is writing.
+        self.conn.busy_timeout(std::time::Duration::from_secs(5))?;
         Ok(())
     }
 
@@ -115,6 +119,13 @@ impl Db {
 
     pub fn delete_setting(&self, key: &str) -> Result<()> {
         self.conn.execute("DELETE FROM settings WHERE key = ?1", [key])?;
+        Ok(())
+    }
+
+    /// Fold the write-ahead log into the main file (on close), so the .db file alone is
+    /// complete even if the -wal file is later lost.
+    pub fn checkpoint(&self) -> Result<()> {
+        self.conn.query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |_| Ok(()))?;
         Ok(())
     }
 

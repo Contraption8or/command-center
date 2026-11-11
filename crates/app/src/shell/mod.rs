@@ -3,6 +3,7 @@
 mod keys;
 
 pub(crate) use keys::open_url;
+mod dashboard;
 mod layout_editor;
 mod palette;
 mod quick_add;
@@ -33,6 +34,13 @@ pub fn Shell() -> Element {
             toast: Signal::new(None),
         }
     });
+    // A failed save anywhere shows up as an error toast instead of being lost quietly.
+    let save_error = store.error;
+    use_effect(move || {
+        if let Some(e) = save_error() {
+            ui.error(format!("Couldn't save: {e}"));
+        }
+    });
     keys::use_key_bridge();
     keys::use_global_quick_add();
     crate::window_state::use_window_persistence();
@@ -57,7 +65,7 @@ pub fn Shell() -> Element {
             }
             if *ui.palette.read() { palette::Palette {} }
             if let Some(prefill) = ui.quick_add.read().clone() { quick_add::QuickAdd { prefill } }
-            if let Some((ts, x, y)) = *ui.time_menu.read() { time_menu::TimeMenu { ts, x, y } }
+            if let Some((ts, x, y, event)) = *ui.time_menu.read() { time_menu::TimeMenu { ts, x, y, event } }
             if let Some(t) = ui.toast.read().clone() {
                 div {
                     key: "{t.id}",
@@ -133,10 +141,20 @@ fn TopBar() -> Element {
             h1 { "{title}" }
             span { class: "date", "{date}" }
             div { class: "grow" }
-            button { class: "search-btn", onclick: move |_| ui.palette.set(true),
-                Icon { d: icons::SEARCH }
-                span { "Search or create" }
-                kbd { "Ctrl K" }
+            if view == View::Overview && dashboard::EDITING() {
+                dashboard::EditBar {}
+            } else {
+                if view == View::Overview {
+                    button { class: "icon-btn top-edit", title: "Customize dashboard",
+                        onclick: move |_| *dashboard::EDITING.write() = true,
+                        Icon { d: icons::PENCIL }
+                    }
+                }
+                button { class: "search-btn", onclick: move |_| ui.palette.set(true),
+                    Icon { d: icons::SEARCH }
+                    span { "Search or create" }
+                    kbd { "Ctrl K" }
+                }
             }
         }
     }
@@ -146,33 +164,51 @@ fn TopBar() -> Element {
 fn Overview() -> Element {
     let store = use_store();
     let slots = store.read(crate::layout::load);
+    let editing = dashboard::EDITING();
+    // Leaving the overview ends edit mode.
+    use_drop(dashboard::stop);
     rsx! {
-        div { class: "grid",
+        div { id: "dash-grid", class: if editing { "grid editing" } else { "grid" },
             for s in slots.into_iter().filter(|s| s.visible) {
                 if let Some(def) = widgets::get(&s.id) {
-                    CardHost { key: "{def.id}", id: def.id, cols: s.cols, rows: s.rows }
+                    CardHost { key: "{def.id}", id: def.id, cols: s.cols, rows: s.rows, editing }
                 }
             }
         }
+        if editing { dashboard::DashBridge {} }
     }
 }
 
 /// Draws the card frame for a widget. Keyed by id, so each host always calls the same
 /// widget function and its hooks stay stable.
 #[component]
-fn CardHost(id: &'static str, cols: u8, rows: u8) -> Element {
+fn CardHost(id: &'static str, cols: u8, rows: u8, editing: bool) -> Element {
     let ui = use_ui();
+    let store = use_store();
     let def = widgets::get(id).expect("registered widget");
     rsx! {
         section {
-            class: "card",
+            class: if editing { "card edit" } else { "card" },
             style: "grid-column: span {cols}; grid-row: span {rows};",
+            "data-slot": id,
+            "data-cols": "{cols}",
+            "data-rows": "{rows}",
             div { class: "card-head",
                 h2 { "{def.title}" }
                 div { class: "grow" }
-                button { class: "open", title: "Open", onclick: move |_| ui.open(View::Widget(id)), Icon { d: icons::EXPAND } }
+                if editing {
+                    span { class: "dash-size", "{cols} × {rows}" }
+                    button { class: "open dash-hide", title: "Hide", onclick: move |_| dashboard::hide(&store, id), Icon { d: icons::CLOSE } }
+                } else {
+                    button { class: "open", title: "Open", onclick: move |_| ui.open(View::Widget(id)), Icon { d: icons::EXPAND } }
+                }
             }
             div { class: "card-body", {(def.card)()} }
+            if editing {
+                div { class: "dash-rz x", "data-resize": "x" }
+                div { class: "dash-rz y", "data-resize": "y" }
+                div { class: "dash-rz xy", "data-resize": "xy" }
+            }
         }
     }
 }
@@ -190,7 +226,7 @@ pub fn shell_commands() -> Vec<Command> {
     vec![
         Command::new("Go to", icons::OVERVIEW, "Overview", Action::Open(View::Overview)).shortcut("Ctrl+0").keywords("home dashboard"),
         Command::new("Go to", icons::SETTINGS, "Settings", Action::Open(View::Settings)).shortcut("Ctrl+,").keywords("preferences"),
-        Command::new("App", icons::OVERVIEW, "Customize dashboard", Action::Open(View::Settings)).keywords("layout cards hide reorder resize widgets"),
+        Command::new("App", icons::PENCIL, "Customize dashboard", Action::Run(dashboard::start)).keywords("layout cards hide reorder resize move drag widgets edit"),
         Command::new("Create", icons::PLUS, "Quick add", Action::QuickAdd("")).shortcut("Ctrl+J"),
         Command::new("App", icons::SUN, "Toggle light / dark", Action::ToggleTheme).shortcut("Ctrl+Shift+L").keywords("theme mode"),
         Command::new("Data", icons::DOWNLOAD, "Export backup…", Action::Run(settings::export_backup)).keywords("save file"),
