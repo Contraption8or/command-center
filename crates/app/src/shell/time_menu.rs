@@ -4,7 +4,7 @@
 
 use crate::state::{use_ui, Ui};
 use crate::store::use_store;
-use crate::widgets::events::{delete_with_undo, load_zones, EventColors};
+use crate::widgets::events::{delete_with_undo, load_zones, toggle_done, EventColors};
 use cc_core::tz::{self, discord_tag, DiscordStyle};
 use chrono::{Local, TimeZone};
 use dioxus::prelude::*;
@@ -27,6 +27,7 @@ pub fn TimeMenu(ts: i64, x: f64, y: f64, event: Option<i64>) -> Element {
     // Right-clicked on a calendar event: offer colour and delete above the copy items.
     let ev = event.and_then(|id| store.read(|db| cc_core::model::events::get(db, id)));
     let s_del = store.clone();
+    let s_done = store.clone();
 
     // Plain-text version for places that don't render Discord tags.
     let fmt = |t: chrono::NaiveDateTime| {
@@ -53,6 +54,11 @@ pub fn TimeMenu(ts: i64, x: f64, y: f64, event: Option<i64>) -> Element {
                 if let Some(e) = ev.clone() {
                     div { class: "tm-head tm-event", "{e.title}" }
                     div { class: "tm-colors", EventColors { id: e.id, color: e.color.clone() } }
+                    button { class: "tm-item",
+                        onclick: move |_| { toggle_done(&s_done, ui, e.id, e.done); let mut m = ui.time_menu; m.set(None); },
+                        span { class: "tm-label", if e.done { "Mark as not done" } else { "Mark as done" } }
+                        span { class: "tm-preview", if e.done { "removes it from completed tasks" } else { "adds it to completed tasks" } }
+                    }
                     if e.is_manual() {
                         button { class: "tm-item danger",
                             onclick: move |_| { delete_with_undo(&s_del, ui, e.id); let mut m = ui.time_menu; m.set(None); },

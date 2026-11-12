@@ -108,3 +108,10 @@
 .tm-sep { height: 1px; background: var(--border); margin: 4px 6px; }
 .ev-dot { width: 8px; height: 8px; border-radius: 999px; flex: none; background: var(--c); }
 .ev-row.past .ev-dot { opacity: .6; }
+/* Checked-off events: a check instead of the dot, struck through and quieter. */
+.ev-check { width: 14px; height: 14px; margin: 0 -3px; flex: none; display: grid; place-items: center; color: var(--ec, var(--good)); }
+.ev-check .icon { width: 14px; height: 14px; stroke-width: 2.6; }
+.ev-row.done .ev-title { text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--text) 45%, transparent); color: var(--text-3); }
+.ev-row.done .ev-time { color: var(--text-3); }
+.m-ev[data-done="1"] .m-title, .wk-ev[data-done="1"] .wk-ev-title, .wk-chip[data-done="1"] { text-decoration: line-through; }
+.m-ev[data-done="1"], .wk-ev[data-done="1"], .wk-chip[data-done="1"] { opacity: .55; }

@@ -118,6 +118,7 @@ cargo test --workspace             # unit tests (all core logic is tested withou
   - An end time before the start runs past midnight, so a 10 PM–1 AM stream works.
 - **Color:** pick one of eight colors (or Default, the theme accent) in the editor or from the right-click menu. Week blocks, month entries and the agenda dot all use it.
 - **Delete:** in the editor or from the right-click menu, with Undo.
+- **Check off an event:** right-click it (in the overview's Upcoming card, the agenda, week or month) → **Mark as done**. It's added to today's completed tasks and shows struck through with a check. **Mark as not done** removes that task again; deleting the task, or un-checking it in Tasks, also un-checks the event.
 - **Quick add:** use the `e` prefix, for example `e Dentist @fri 9:15-10`. See [Quick-add syntax](#quick-add-syntax).
 
 #### Timezones
@@ -131,7 +132,7 @@ The panel to the right of the calendar converts times for the people you work wi
 
 #### Copy a time for Discord
 
-**Right-click any time** to copy it for Discord. This works on events in the week and month grids, agenda rows, the editor's date line, and any row in the timezone panel. Right-clicking an event also offers its **colors** and **Delete event** (manual events only) above the copy options.
+**Right-click any time** to copy it for Discord. This works on events in the week and month grids, agenda rows, the editor's date line, and any row in the timezone panel. Right-clicking an event also offers **Mark as done**, its **colors** and **Delete event** (manual events only) above the copy options.
 
 | Option | Copies | Discord shows (in each reader's own time zone) |
 |---|---|---|
@@ -298,7 +299,7 @@ e Rent due @2026-12-01              all-day event (no time given)
 | `Ctrl+Shift+L` | Toggle light / dark |
 | `Ctrl+Z` | Undo the last delete while its toast is showing |
 | Right-click a time | Copy it as a Discord timestamp (or as text for every zone) |
-| Right-click an event | Recolor or delete it, or copy its time |
+| Right-click an event | Mark it done, recolor or delete it, or copy its time |
 | `Esc` | Leave a text field → close an overlay → leave dashboard edit mode → back to the overview |
 | `↑` `↓` `Enter` | Move and run in the palette |
 

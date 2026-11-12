@@ -146,7 +146,8 @@ fn EventRow(event: Event, compact: bool) -> Element {
     let id = event.id;
     let sel = !compact && SELECTED() == Some(id);
     let class = format!(
-        "ev-row{}{}{}",
+        "ev-row{}{}{}{}",
+        if event.done { " done" } else { "" },
         if event.is_now(n) { " now" } else { "" },
         if event.is_past(n) { " past" } else { "" },
         if sel { " sel" } else { "" }
@@ -168,7 +169,11 @@ fn EventRow(event: Event, compact: bool) -> Element {
                     *SELECTED.write() = next;
                 }
             },
-            span { class: "ev-dot", style: "{color_var(&event)}" }
+            if event.done {
+                span { class: "ev-check", style: "{color_var(&event)}", Icon { d: icons::CHECK } }
+            } else {
+                span { class: "ev-dot", style: "{color_var(&event)}" }
+            }
             span { class: if event.all_day { "ev-time allday" } else { "ev-time" }, "{time}" }
             span { class: "ev-title", "{event.title}" }
             if !event.location.is_empty() { span { class: "ev-loc", "{event.location}" } }
@@ -411,4 +416,24 @@ pub(crate) fn delete_with_undo(store: &crate::store::Store, ui: crate::state::Ui
         *SELECTED.write() = Some(ev.id);
     });
     true
+}
+
+/// Check an event off (adds it to today's completed tasks) or back on, with Undo.
+pub(crate) fn toggle_done(store: &Store, ui: Ui, id: i64, done: bool) {
+    let title = store.peek(|db| events::get(db, id)).map(|e| e.title).unwrap_or_default();
+    if done {
+        if store.write(|db| events::mark_undone(db, id)).is_ok() {
+            ui.notify_undo(format!("“{title}” is no longer done"), move |s| {
+                let today = cc_core::time::today();
+                let _ = s.write(|db| events::mark_done(db, id, today));
+            });
+        }
+    } else {
+        let today = *ui.today.peek();
+        if store.write(|db| events::mark_done(db, id, today)).is_ok() {
+            ui.notify_undo(format!("Checked off “{title}”"), move |s| {
+                let _ = s.write(|db| events::mark_undone(db, id));
+            });
+        }
+    }
 }

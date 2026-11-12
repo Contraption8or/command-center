@@ -35,3 +35,4 @@ pub fn Icon(d: &'static str) -> Element {
     }
 }
 pub const PENCIL: &str = "M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4";
+pub const CHECK: &str = "M5 12.5l4.5 4.5L19 7.5";

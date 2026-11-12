@@ -30,6 +30,10 @@ pub struct Event {
     pub source: String,
     /// Hex colour like `#4ade80`; `None` = the theme accent.
     pub color: Option<String>,
+    /// The completed task created when the event was checked off.
+    pub done_task_id: Option<i64>,
+    /// Checked off: the linked task exists and is done.
+    pub done: bool,
 }
 
 impl Event {
@@ -98,7 +102,8 @@ pub fn time_range(s: NaiveTime, e: NaiveTime, h12: bool) -> String {
 impl Event {
 }
 
-const SELECT: &str = "SELECT id, title, starts_at, ends_at, all_day, location, notes, source, color FROM events";
+const SELECT: &str = "SELECT id, title, starts_at, ends_at, all_day, location, notes, source, color, done_task_id,
+    COALESCE((SELECT t.done_at IS NOT NULL FROM tasks t WHERE t.id = events.done_task_id), 0) FROM events";
 
 fn from_row(r: &Row) -> rusqlite::Result<Event> {
     let start: String = r.get(2)?;
@@ -113,6 +118,8 @@ fn from_row(r: &Row) -> rusqlite::Result<Event> {
         notes: r.get(6)?,
         source: r.get(7)?,
         color: r.get(8)?,
+        done_task_id: r.get(9)?,
+        done: r.get(10)?,
     })
 }
 
@@ -261,8 +268,9 @@ pub fn delete(db: &Db, id: i64) -> Result<Option<Event>> {
 
 pub fn restore(db: &Db, e: &Event) -> Result<()> {
     db.conn.execute(
-        "INSERT INTO events(id,title,starts_at,ends_at,all_day,location,notes,source,color) VALUES (?1,?2,?3,?4,?5,?6,?7,'manual',?8)",
-        params![e.id, e.title, ts(e.starts_at), e.ends_at.map(ts), e.all_day, e.location, e.notes, e.color],
+        "INSERT INTO events(id,title,starts_at,ends_at,all_day,location,notes,source,color,done_task_id)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,'manual',?8,(SELECT id FROM tasks WHERE id = ?9))",
+        params![e.id, e.title, ts(e.starts_at), e.ends_at.map(ts), e.all_day, e.location, e.notes, e.color, e.done_task_id],
     )?;
     Ok(())
 }
@@ -373,5 +381,68 @@ mod color_tests {
         let e = delete(&db, id).unwrap().unwrap();
         restore(&db, &e).unwrap();
         assert_eq!(get(&db, id).unwrap().color.as_deref(), Some("#4ade80"));
+    }
+}
+
+/// Check an event off: add it to `today`'s completed tasks (reusing the task made last
+/// time, if it still exists). Returns the task id.
+pub fn mark_done(db: &Db, id: i64, today: NaiveDate) -> Result<i64> {
+    let Some(e) = get(db, id) else { bail!("event not found") };
+    let existing = e.done_task_id.filter(|t| crate::model::tasks::get(db, *t).is_some());
+    let task = match existing {
+        Some(t) => t,
+        None => {
+            let t = crate::model::tasks::add(db, &e.title, today, None, None)?;
+            db.conn.execute("UPDATE events SET done_task_id = ?1 WHERE id = ?2", params![t, id])?;
+            t
+        }
+    };
+    crate::model::tasks::set_done(db, task, true)?;
+    Ok(task)
+}
+
+/// Undo [`mark_done`]: the event wasn't a task to begin with, so its task is removed.
+pub fn mark_undone(db: &Db, id: i64) -> Result<()> {
+    if let Some(t) = get(db, id).and_then(|e| e.done_task_id) {
+        db.conn.execute("DELETE FROM tasks WHERE id = ?1", [t])?;
+    }
+    db.conn.execute("UPDATE events SET done_task_id = NULL WHERE id = ?1", [id])?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod done_tests {
+    use super::*;
+    use crate::model::tasks;
+
+    #[test]
+    fn check_off_and_back() {
+        let db = Db::open_in_memory().unwrap();
+        let day = NaiveDate::from_ymd_opt(2026, 11, 12).unwrap();
+        let input = EventInput {
+            title: "Record Beating Superflat".into(), date: day,
+            start: NaiveTime::from_hms_opt(1, 45, 0), end: None, end_date: None,
+            location: String::new(), notes: String::new(),
+        };
+        let id = add(&db, &input).unwrap();
+        assert!(!get(&db, id).unwrap().done);
+
+        let t = mark_done(&db, id, day).unwrap();
+        let task = tasks::get(&db, t).unwrap();
+        assert!(task.done && task.title == "Record Beating Superflat" && task.scheduled_for == day);
+        assert!(get(&db, id).unwrap().done);
+        assert_eq!(mark_done(&db, id, day).unwrap(), t, "checking again reuses the task");
+
+        tasks::set_done(&db, t, false).unwrap();
+        assert!(!get(&db, id).unwrap().done, "un-checking the task un-checks the event");
+        tasks::set_done(&db, t, true).unwrap();
+        tasks::delete(&db, t).unwrap();
+        let e = get(&db, id).unwrap();
+        assert!(!e.done && e.done_task_id.is_none(), "deleting the task clears the link");
+
+        let t2 = mark_done(&db, id, day).unwrap();
+        mark_undone(&db, id).unwrap();
+        assert!(tasks::get(&db, t2).is_none());
+        assert!(!get(&db, id).unwrap().done);
     }
 }

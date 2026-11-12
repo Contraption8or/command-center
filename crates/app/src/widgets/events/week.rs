@@ -229,6 +229,7 @@ pub fn WeekView(anchor: NaiveDate) -> Element {
                             button {
                                 key: "{e.id}",
                                 class: if selected == Some(e.id) { "wk-chip sel" } else { "wk-chip" },
+                                "data-done": if e.done { "1" } else { "0" },
                                 style: "{color_var(&e)}",
                                 "data-ev-id": "{e.id}",
                                 "data-manual": if e.is_manual() { "1" } else { "0" },
@@ -280,6 +281,7 @@ pub fn WeekView(anchor: NaiveDate) -> Element {
                                                     "data-start": "{s}",
                                                     "data-end": "{en}",
                                                     "data-manual": if e.is_manual() { "1" } else { "0" },
+                                                    "data-done": if e.done { "1" } else { "0" },
                                                     "data-ts": "{cc_core::tz::unix(e.starts_at)}",
                                                     title: "{e.title} · {time}",
                                                     div { class: "wk-ev-title", "{e.title}" }
@@ -319,6 +321,8 @@ mod tests {
             notes: String::new(),
             source: "manual".into(),
             color: None,
+            done_task_id: None,
+            done: false,
         }
     }
 
