@@ -9,6 +9,8 @@ use std::rc::Rc;
 pub enum View {
     Overview,
     Widget(&'static str),
+    /// Two modules side by side (left, right).
+    Split(&'static str, &'static str),
     Settings,
 }
 

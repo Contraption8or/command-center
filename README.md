@@ -66,6 +66,7 @@ cargo test --workspace             # unit tests (all core logic is tested withou
 ## Overview and window
 
 - **Overview** (`Ctrl+0`): a grid with one card per module. Click ↗ on a card, its icon in the side rail, or `Ctrl+1…6` to open the module's full view. `Esc` goes back.
+- **Split view:** drag a module's icon in the side rail onto another module's icon to show both side by side, each in its own pane (the one you dropped on stays left). Drag an icon onto the open module to put it beside it, or onto a pane to replace that pane (dropping the other pane's module swaps them). Drag the divider to resize; its position is remembered. Each pane's ↗ shows that module alone and × closes the pane. Clicking a rail icon goes back to a single module.
 - **Customize the dashboard** by clicking the ✎ pencil in the top bar of the overview (or `Ctrl+K` → *Customize dashboard*). The cards stay live while you arrange them, so you see exactly what you'll get:
   - **Move:** drag a card anywhere. The others reflow around it as you go.
   - **Resize:** drag a card's right edge, bottom edge or corner. It snaps to grid slots, from 3 to 12 columns wide and 1 to 4 rows tall; the corner of the card header shows its current size, e.g. `4 × 2`.

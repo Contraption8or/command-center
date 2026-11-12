@@ -8,6 +8,7 @@ mod layout_editor;
 mod palette;
 mod quick_add;
 mod settings;
+mod split;
 mod time_menu;
 
 use crate::icons::{self, Icon};
@@ -63,6 +64,7 @@ pub fn Shell() -> Element {
                             match v {
                                 View::Overview => rsx! { Overview {} },
                                 View::Widget(id) => rsx! { FullHost { id } },
+                                View::Split(l, r) => rsx! { split::SplitView { left: l, right: r } },
                                 View::Settings => rsx! { settings::Settings {} },
                             }
                         }
@@ -96,6 +98,7 @@ pub fn Shell() -> Element {
 #[component]
 fn Rail() -> Element {
     let ui = use_ui();
+    split::use_split_bridge();
     let view = *ui.view.read();
     rsx! {
         nav { class: "rail",
@@ -106,8 +109,9 @@ fn Rail() -> Element {
                     key: "{w.id}",
                     icon: w.icon,
                     tip: format!("{}  Ctrl+{}", w.title, i + 1),
-                    active: view == View::Widget(w.id),
+                    active: view == View::Widget(w.id) || matches!(view, View::Split(l, r) if l == w.id || r == w.id),
                     to: View::Widget(w.id),
+                    tab: w.id,
                 }
             }
             div { class: "spacer" }
@@ -117,11 +121,12 @@ fn Rail() -> Element {
 }
 
 #[component]
-fn RailButton(icon: &'static str, tip: String, active: bool, to: View) -> Element {
+fn RailButton(icon: &'static str, tip: String, active: bool, to: View, #[props(default)] tab: Option<&'static str>) -> Element {
     let ui = use_ui();
     rsx! {
         button {
             class: if active { "rail-btn active" } else { "rail-btn" },
+            "data-tab": tab,
             onclick: move |_| ui.open(to),
             Icon { d: icon }
             span { class: "tip", "{tip}" }
@@ -134,9 +139,13 @@ fn TopBar() -> Element {
     let mut ui = use_ui();
     let view = *ui.view.read();
     let title = match view {
-        View::Overview => "Overview",
-        View::Settings => "Settings",
-        View::Widget(id) => widgets::get(id).map_or("", |w| w.title),
+        View::Overview => "Overview".to_string(),
+        View::Settings => "Settings".to_string(),
+        View::Widget(id) => widgets::get(id).map_or("", |w| w.title).to_string(),
+        View::Split(l, r) => {
+            let t = |id| widgets::get(id).map_or("", |w| w.title);
+            format!("{}  ·  {}", t(l), t(r))
+        }
     };
     let date = ui.today.read().format("%A, %B %-d").to_string();
     rsx! {
@@ -257,6 +266,7 @@ fn view_key(v: View) -> (String, View) {
     let k = match v {
         View::Overview => "overview".to_string(),
         View::Widget(id) => format!("w-{id}"),
+        View::Split(l, r) => format!("s-{l}-{r}"),
         View::Settings => "settings".to_string(),
     };
     (k, v)
