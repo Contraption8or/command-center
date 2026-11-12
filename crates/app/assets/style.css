@@ -671,3 +671,63 @@ kbd {
 .grid.busy .dash-rz.x, .grid.busy .dash-rz.y { cursor: inherit; }
 .top-edit { opacity: .7; }
 .top-edit:hover { opacity: 1; }
+
+/* ---- motion ------------------------------------------------------------ */
+/* Short, ease-out, and only opacity/transform. Fill mode "backwards" so nothing keeps a
+   transform once an animation ends (a lingering transform would break fixed positioning
+   and the dashboard drag). */
+:root { --ease-out: cubic-bezier(.2, .8, .2, 1); --ease-pop: cubic-bezier(.32, .72, 0, 1); }
+@keyframes view-in { from { opacity: 0; transform: translateY(6px); } }
+@keyframes card-in { from { opacity: 0; transform: translateY(10px) scale(.985); } }
+@keyframes pop-in { from { opacity: 0; transform: translateY(-8px) scale(.97); } }
+@keyframes menu-in { from { opacity: 0; transform: scale(.96); } }
+@keyframes panel-in { from { opacity: 0; transform: translateX(12px); } }
+@keyframes rise-in { from { opacity: 0; transform: translateY(4px); } }
+
+/* Switching views: the new view fades and settles up into place. */
+.view { height: 100%; animation: view-in .24s var(--ease-out) backwards; }
+/* The overview's cards follow in a quick stagger. */
+.view-overview { animation: none; }
+.view-overview .grid > .card { animation: card-in .36s var(--ease-out) backwards; }
+.view-overview .grid > .card:nth-child(2) { animation-delay: .03s; }
+.view-overview .grid > .card:nth-child(3) { animation-delay: .06s; }
+.view-overview .grid > .card:nth-child(4) { animation-delay: .09s; }
+.view-overview .grid > .card:nth-child(5) { animation-delay: .12s; }
+.view-overview .grid > .card:nth-child(6) { animation-delay: .15s; }
+.view-overview .grid > .card:nth-child(7) { animation-delay: .18s; }
+.view-overview .grid > .card:nth-child(n+8) { animation-delay: .21s; }
+.grid.editing > .card { animation: none; transition: outline-color .1s, box-shadow .15s; }
+
+/* Calendar Agenda / Week / Month switch, and side panels opening or changing item. */
+.cal-main > .agenda, .cal-main > .wk, .cal-main > .month { animation: rise-in .2s var(--ease-out) backwards; }
+.event-editor, .project-detail, .task-detail { animation: panel-in .22s var(--ease-out) backwards; }
+
+/* Overlays. */
+.scrim { animation: fade .14s ease-out; }
+.scrim > .palette { animation: pop-in .2s var(--ease-pop) backwards; }
+.menu-scrim > .time-menu { animation: menu-in .14s var(--ease-pop) backwards; transform-origin: top left; }
+
+/* Side rail: an accent bar grows in beside the active section. */
+.rail-btn::before {
+  content: ""; position: absolute; left: -9px; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0;
+  background: var(--accent); transform: scaleY(0); opacity: 0;
+  transition: transform .22s var(--ease-out), opacity .15s;
+}
+.rail-btn.active::before { transform: scaleY(1); opacity: 1; }
+.rail-btn:active { transform: scale(.94); }
+.rail-btn { transition: background .15s, color .15s, transform .1s; }
+
+/* Gentle state changes on controls and cards. */
+.seg button, .btn, .icon-btn, .search-btn, .palette .item, .ev-row, .m-ev, .wk-chip, .swatch, .tm-item {
+  transition: background-color .14s, border-color .14s, color .14s, box-shadow .14s;
+}
+.card { transition: border-color .18s; }
+.card:hover { border-color: var(--border-strong); }
+.btn:active, .icon-btn:active { transform: scale(.97); }
+.swatch { transition: border-color .14s, transform .12s; }
+.swatch:hover { transform: scale(1.12); }
+
+@media (prefers-reduced-motion: reduce) {
+  /* The toast is left alone: its animation is also its timer. */
+  *:not(.toast), *::before, *::after { animation-duration: .01ms !important; animation-delay: 0s !important; transition-duration: .01ms !important; }
+}

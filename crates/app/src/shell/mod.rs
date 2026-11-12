@@ -56,10 +56,16 @@ pub fn Shell() -> Element {
                 TopBar {}
                 crate::updates::UpdateBanner {}
                 div { class: "content",
-                    match *ui.view.read() {
-                        View::Overview => rsx! { Overview {} },
-                        View::Widget(id) => rsx! { FullHost { key: "{id}", id } },
-                        View::Settings => rsx! { settings::Settings {} },
+                    // Keyed per view, so every switch mounts a fresh wrapper and plays the
+                    // enter animation (see "motion" in style.css).
+                    for (vkey, v) in std::iter::once(view_key(*ui.view.read())) {
+                        div { key: "{vkey}", class: if v == View::Overview { "view view-overview" } else { "view" },
+                            match v {
+                                View::Overview => rsx! { Overview {} },
+                                View::Widget(id) => rsx! { FullHost { id } },
+                                View::Settings => rsx! { settings::Settings {} },
+                            }
+                        }
                     }
                 }
             }
@@ -245,3 +251,13 @@ pub fn all_commands() -> Vec<Command> {
     out
 }
 
+
+/// A stable key per view, so switching views remounts the view wrapper.
+fn view_key(v: View) -> (String, View) {
+    let k = match v {
+        View::Overview => "overview".to_string(),
+        View::Widget(id) => format!("w-{id}"),
+        View::Settings => "settings".to_string(),
+    };
+    (k, v)
+}

@@ -76,6 +76,7 @@ cargo test --workspace             # unit tests (all core logic is tested withou
   - Below 1150 px of window width, cards fall back to half or full width so they stay readable.
 - **Fills any window size:** cards share the full width and height of the window and scroll inside when content is longer. Text never grows with the window: on wide windows the gaps and padding open up instead, and lists show more items. To make everything bigger or smaller, set **Settings → Appearance → Interface size** (90–150%, default 100%).
 - **The window remembers** its size, position and maximized state between sessions. If it was last on a monitor that's no longer connected, it reopens centered on your main screen.
+- **Motion:** views, overview cards, calendar views, side panels and overlays animate in briefly (about a quarter second, opacity and position only). With Windows' *Animation effects* turned off, the app's animations are off too.
 - **One copy at a time:** opening Command Center while it's already running brings the open window to the front instead of starting a second copy.
 - **Saving:** every change is written to disk the moment you make it, and closing the app folds everything into the main database file. If a save ever fails, an error toast says so.
 - **The title bar matches the theme.** On Windows 11 its colour, text and border follow dark or light mode, so it blends into the app while keeping native snapping, resizing and the window buttons. On Windows 10 only the dark or light frame changes.
