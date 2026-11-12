@@ -326,14 +326,17 @@ Only the global hotkey works when Command Center isn't focused, so the other sho
 
 ## Data, backups and sample data
 
-| What | Where |
-|---|---|
-| Database | `%APPDATA%\CommandCenter\data\command-center.db` |
-| Automatic and safety backups | `%APPDATA%\CommandCenter\data\backups\` |
-| WebView cache | `%APPDATA%\CommandCenter\data\webview\` |
+Everything lives in one **data folder**, `%APPDATA%\CommandCenter\data` unless you pick another:
 
-- **Open the folder:** Settings → Data → **Open folder**.
-- **Moving your data:** to keep it somewhere else (a synced drive, for example), set the environment variable `COMMAND_CENTER_DATA` to a folder before starting the app.
+| What | Where (inside the data folder) |
+|---|---|
+| Database | `command-center.db` |
+| Automatic and safety backups | `backups\` |
+| WebView cache | `webview\` |
+
+- **Pick the folder:** Settings → Data → **Change…**. If the folder is empty, your data is copied there; if it already has Command Center data (say, from another PC on a synced drive), that data is used instead. Either way the old folder is left as it was, and the app restarts on the new one. **Use standard** goes back to `%APPDATA%`. The choice is saved in `%APPDATA%\CommandCenter\data-folder.txt`.
+- **Open the folder:** Settings → Data → **Open**.
+- **For testing:** the `COMMAND_CENTER_DATA` environment variable overrides the folder for one run.
 - **Format:** the database is a normal SQLite file that any SQLite browser can open.
   - Money is stored as integer cents.
   - Dates are `YYYY-MM-DD`.

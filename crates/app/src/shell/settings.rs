@@ -28,6 +28,10 @@ pub fn Settings() -> Element {
     let s4 = store.clone();
     let s5 = store.clone();
     let s6 = store.clone();
+    let s_dir = store.clone();
+    let s_std = store.clone();
+    let folder = store.read(|db| db.path().parent().map(|p| p.display().to_string()).unwrap_or_default());
+    let custom_dir = cc_core::db::data_dir_is_custom() && std::env::var(cc_core::db::DATA_DIR_ENV).is_err();
     let s7 = store.clone();
     let s8 = store.clone();
     let s9 = store.clone();
@@ -114,10 +118,14 @@ pub fn Settings() -> Element {
             div { class: "panel",
                 h3 { "Data" }
                 div { class: "row",
-                    span { class: "label", "Database" }
+                    span { class: "label", "Data folder" }
                     div { class: "value",
-                        span { class: "path", title: "{path}", "{path}" }
-                        button { class: "btn", onclick: move |_| open_data_folder(&s6, ui), "Open folder" }
+                        span { class: "path", title: "{path}", "{folder}" }
+                        button { class: "btn", onclick: move |_| change_data_folder(&s_dir, ui), "Change…" }
+                        if custom_dir {
+                            button { class: "btn", title: "Go back to %APPDATA%\\CommandCenter\\data", onclick: move |_| use_standard_folder(&s_std, ui), "Use standard" }
+                        }
+                        button { class: "btn", onclick: move |_| open_data_folder(&s6, ui), "Open" }
                     }
                 }
                 div { class: "row",
@@ -260,5 +268,59 @@ pub fn open_backup_folder(store: &Store, ui: Ui) {
     let _ = std::fs::create_dir_all(&dir);
     if let Err(e) = std::process::Command::new("explorer").arg(&dir).spawn() {
         ui.error(format!("Could not open folder: {e}"));
+    }
+}
+
+/// Pick a new data folder (Settings → Data). Your data is copied there, or the folder's
+/// existing data is used; then the app restarts on it.
+pub fn change_data_folder(store: &Store, ui: Ui) {
+    let Some(dir) = FileDialog::new().set_title("Choose where Command Center keeps its data").pick_folder() else { return };
+    switch_data_folder(store, ui, dir);
+}
+
+pub fn use_standard_folder(store: &Store, ui: Ui) {
+    match cc_core::db::standard_data_dir() {
+        Ok(dir) => switch_data_folder(store, ui, dir),
+        Err(e) => ui.error(format!("{e:#}")),
+    }
+}
+
+fn switch_data_folder(store: &Store, ui: Ui, dir: std::path::PathBuf) {
+    let current = store.peek(|db| db.path().parent().map(|p| p.to_path_buf())).unwrap_or_default();
+    if dir == current {
+        ui.notify("Already using that folder");
+        return;
+    }
+    if std::env::var(cc_core::db::DATA_DIR_ENV).is_ok() {
+        ui.error("The data folder is set by COMMAND_CENTER_DATA for this run");
+        return;
+    }
+    let has_data = dir.join(cc_core::db::DB_FILE).exists();
+    let text = if has_data {
+        format!(
+            "{} already has Command Center data.\n\nSwitch to it? Command Center will restart. Your current data stays in {}.",
+            dir.display(),
+            current.display()
+        )
+    } else {
+        format!(
+            "Copy your data to {} and use that folder from now on?\n\nCommand Center will restart. The current copy stays in {} as a fallback.",
+            dir.display(),
+            current.display()
+        )
+    };
+    if !confirm("Change data folder", &text) {
+        return;
+    }
+    let result = store.peek(|db| db.move_to(&dir)).and_then(|_| {
+        let standard = cc_core::db::standard_data_dir()?;
+        cc_core::db::remember_data_dir(if dir == standard { None } else { Some(&dir) })
+    });
+    match result {
+        Ok(()) => {
+            let _ = store.peek(|db| db.checkpoint());
+            crate::restart();
+        }
+        Err(e) => ui.error(format!("Couldn't change the data folder: {e:#}")),
     }
 }

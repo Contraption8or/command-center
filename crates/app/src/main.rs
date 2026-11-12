@@ -87,7 +87,18 @@ fn fatal(msg: &str) -> ! {
 /// exits, so two copies never edit the same data with different views of it.
 #[cfg(windows)]
 mod single_instance {
-    use windows_sys::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use windows_sys::Win32::Foundation::{CloseHandle, GetLastError, ERROR_ALREADY_EXISTS};
+
+    static HELD: AtomicUsize = AtomicUsize::new(0);
+
+    /// Let go of the data folder (before relaunching on another one).
+    pub fn release() {
+        let h = HELD.swap(0, Ordering::SeqCst);
+        if h != 0 {
+            unsafe { CloseHandle(h as _) };
+        }
+    }
     use windows_sys::Win32::System::Threading::CreateMutexW;
     use windows_sys::Win32::UI::WindowsAndMessaging::{FindWindowW, IsIconic, SetForegroundWindow, ShowWindow, SW_RESTORE};
 
@@ -102,9 +113,13 @@ mod single_instance {
         let key = data_dir.to_string_lossy().to_lowercase();
         let hash = key.bytes().fold(0xcbf29ce484222325u64, |h, b| (h ^ b as u64).wrapping_mul(0x100000001b3));
         let name = wide(&format!(r"Local\CommandCenter-{hash:016x}"));
-        // The handle is deliberately never closed: Windows releases it when the process exits.
+        // Held until exit (or release()); Windows frees it when the process ends.
         let handle = unsafe { CreateMutexW(std::ptr::null(), 0, name.as_ptr()) };
-        if handle.is_null() || unsafe { GetLastError() } != ERROR_ALREADY_EXISTS {
+        if !handle.is_null() && unsafe { GetLastError() } != ERROR_ALREADY_EXISTS {
+            HELD.store(handle as usize, Ordering::SeqCst);
+            return true;
+        }
+        if handle.is_null() {
             return true;
         }
         let title = wide(if cfg!(debug_assertions) { "Command Center (dev)" } else { "Command Center" });
@@ -119,4 +134,14 @@ mod single_instance {
         }
         false
     }
+}
+
+/// Start a fresh copy of the app and exit this one (after switching the data folder).
+pub fn restart() -> ! {
+    #[cfg(windows)]
+    single_instance::release();
+    if let Ok(exe) = std::env::current_exe() {
+        let _ = std::process::Command::new(exe).spawn();
+    }
+    std::process::exit(0);
 }
