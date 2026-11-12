@@ -188,25 +188,7 @@ pub fn use_window_persistence() {
 /// 64×64 app icon: rounded square with the accent → green gradient used in the side rail.
 pub fn icon() -> Icon {
     const N: u32 = 64;
-    let (a, b) = ([0x7c_u8, 0x8c, 0xff], [0x4a_u8, 0xde, 0x80]);
-    let r = 14.0_f32;
-    let mut rgba = Vec::with_capacity((N * N * 4) as usize);
-    for y in 0..N {
-        for x in 0..N {
-            let t = (x + y) as f32 / (2 * (N - 1)) as f32;
-            // Distance outside the rounded rectangle, for an antialiased edge.
-            let (fx, fy) = (x as f32 + 0.5, y as f32 + 0.5);
-            let dx = (r - fx).max(fx - (N as f32 - r)).max(0.0);
-            let dy = (r - fy).max(fy - (N as f32 - r)).max(0.0);
-            let outside = (dx * dx + dy * dy).sqrt() - r;
-            let alpha = (0.5 - outside).clamp(0.0, 1.0);
-            for c in 0..3 {
-                rgba.push((a[c] as f32 + (b[c] as f32 - a[c] as f32) * t) as u8);
-            }
-            rgba.push((alpha * 255.0) as u8);
-        }
-    }
-    Icon::from_rgba(rgba, N, N).expect("valid icon")
+    Icon::from_rgba(crate::icon_art::icon_rgba(N), N, N).expect("valid icon")
 }
 
 #[cfg(test)]
