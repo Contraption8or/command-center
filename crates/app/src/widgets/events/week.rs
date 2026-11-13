@@ -169,6 +169,8 @@ pub fn WeekView(anchor: NaiveDate) -> Element {
     let monday = week_start(anchor);
     let days: Vec<NaiveDate> = (0..7).map(|i| monday + Duration::days(i)).collect();
     let list = store.read(|db| events::between(db, monday, monday + Duration::days(6)));
+    // Re-render every minute (the shell's clock ticks), so the now-line and past states move.
+    let _minute = *ui.clock.read();
     let now = Local::now().naive_local();
     let now_min = (now.hour() * 60 + now.minute()) as i64;
 

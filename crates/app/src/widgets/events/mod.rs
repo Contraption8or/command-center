@@ -142,6 +142,7 @@ fn by_day(list: &[Event], from: NaiveDate, to: NaiveDate) -> Vec<(NaiveDate, Vec
 #[component]
 fn EventRow(event: Event, compact: bool) -> Element {
     let ui = use_ui();
+    let _minute = *ui.clock.read(); // keep "now" and "past" current
     let n = now();
     let id = event.id;
     let sel = !compact && SELECTED() == Some(id);
