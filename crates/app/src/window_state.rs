@@ -260,31 +260,48 @@ fn titlebar_colors(dark: bool) -> ((u8, u8, u8), (u8, u8, u8), (u8, u8, u8)) {
 }
 
 /// Colour the real Windows title bar to match the theme (Windows 11; on Windows 10 only the
-/// dark/light frame applies). Keeps native snapping, resizing and caption buttons.
+/// dark/light frame applies), and paint the 1px window border in the background colour, so it doesn't show as a
+/// line along the screen edge when the window is snapped or maximised. Keeps
+/// native snapping, resizing and caption buttons.
 pub fn use_themed_titlebar() {
     let ui = crate::state::use_ui();
     let win = use_window();
+    let w2 = win.clone();
     use_effect(move || {
         let dark = *ui.theme.read() == crate::state::Theme::Dark;
-        #[cfg(windows)]
-        {
-            use dioxus::desktop::tao::platform::windows::WindowExtWindows;
-            use windows_sys::Win32::Graphics::Dwm::{
-                DwmSetWindowAttribute, DWMWA_BORDER_COLOR, DWMWA_CAPTION_COLOR, DWMWA_TEXT_COLOR, DWMWA_USE_IMMERSIVE_DARK_MODE,
-            };
-            let hwnd = win.hwnd() as _;
-            let colorref = |(r, g, b): (u8, u8, u8)| -> u32 { r as u32 | (g as u32) << 8 | (b as u32) << 16 };
-            let (caption, text, border) = titlebar_colors(dark);
-            let set = |attr: i32, value: u32| {
-                // SAFETY: valid HWND of this process; value is a 4-byte DWORD/COLORREF/BOOL.
-                unsafe { DwmSetWindowAttribute(hwnd, attr as u32, &value as *const u32 as *const _, 4) };
-            };
-            set(DWMWA_USE_IMMERSIVE_DARK_MODE, dark as u32);
-            set(DWMWA_CAPTION_COLOR, colorref(caption));
-            set(DWMWA_TEXT_COLOR, colorref(text));
-            set(DWMWA_BORDER_COLOR, colorref(border));
-        }
-        #[cfg(not(windows))]
-        let _ = (&win, dark);
+        apply_frame(&win, dark);
     });
+    // Windows can redraw the frame with its own accent border on focus changes and snaps:
+    // re-apply ours whenever that happens.
+    use_wry_event_handler(move |event, _| {
+        use dioxus::desktop::tao::event::{Event, WindowEvent};
+        if let Event::WindowEvent { event: WindowEvent::Focused(_) | WindowEvent::Resized(_), .. } = event {
+            apply_frame(&w2, *ui.theme.peek() == crate::state::Theme::Dark);
+        }
+    });
+}
+
+fn apply_frame(win: &dioxus::desktop::DesktopContext, dark: bool) {
+    #[cfg(windows)]
+    {
+        use dioxus::desktop::tao::platform::windows::WindowExtWindows;
+        use windows_sys::Win32::Graphics::Dwm::{
+            DwmSetWindowAttribute, DWMWA_BORDER_COLOR, DWMWA_CAPTION_COLOR, DWMWA_TEXT_COLOR, DWMWA_USE_IMMERSIVE_DARK_MODE,
+        };
+        let hwnd = win.hwnd() as _;
+        let colorref = |(r, g, b): (u8, u8, u8)| -> u32 { r as u32 | (g as u32) << 8 | (b as u32) << 16 };
+        let (caption, text, _border) = titlebar_colors(dark);
+        // The border is painted in the app's background colour, so it reads as part of the
+        // window: no coloured or see-through line along the screen edge when snapped.
+        let set = |attr: i32, value: u32| {
+            // SAFETY: valid HWND of this process; value is a 4-byte DWORD/COLORREF/BOOL.
+            unsafe { DwmSetWindowAttribute(hwnd, attr as u32, &value as *const u32 as *const _, 4) };
+        };
+        set(DWMWA_USE_IMMERSIVE_DARK_MODE, dark as u32);
+        set(DWMWA_CAPTION_COLOR, colorref(caption));
+        set(DWMWA_TEXT_COLOR, colorref(text));
+        set(DWMWA_BORDER_COLOR, colorref(caption));
+    }
+    #[cfg(not(windows))]
+    let _ = (win, dark);
 }
