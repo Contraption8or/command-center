@@ -23,7 +23,6 @@ pub fn Settings() -> Element {
     let s_clock = store.clone();
 
     let s1 = store.clone();
-    let s2 = store.clone();
     let s3 = store.clone();
     let s4 = store.clone();
     let s5 = store.clone();
@@ -45,8 +44,14 @@ pub fn Settings() -> Element {
                     span { class: "label", "Theme" }
                     div { class: "value",
                         div { class: "seg",
-                            button { class: if theme == Theme::Dark { "on" }, onclick: move |_| if theme != Theme::Dark { run_action(Action::ToggleTheme, &s1, ui) }, "Dark" }
-                            button { class: if theme == Theme::Light { "on" }, onclick: move |_| if theme != Theme::Light { run_action(Action::ToggleTheme, &s2, ui) }, "Light" }
+                            for (t, label) in Theme::ALL {
+                                {
+                                    let s = s1.clone();
+                                    rsx! {
+                                        button { key: "{label}", class: if theme == t { "on" }, onclick: move |_| if theme != t { run_action(Action::SetTheme(t), &s, ui) }, "{label}" }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

@@ -20,6 +20,27 @@
   color-scheme: dark;
 }
 
+/* Plum: the warm dark palette from Plum Pomodoro. */
+[data-theme="plum"] {
+  --bg: #211318;
+  --surface: #2c1b23;
+  --surface-2: #34222a;
+  --surface-3: #3b2830;
+  --border: #432c35;
+  --border-strong: #563a45;
+  --text: #f3e8ec;
+  --text-2: #a8929a;
+  --text-3: #76606a;
+  --accent: #c98a9b;
+  --accent-soft: rgba(201, 138, 155, 0.16);
+  --good: #9fb39a;
+  --warn: #d9b27c;
+  --bad: #e07a86;
+  --shadow: 0 10px 40px rgba(10, 4, 7, 0.6);
+  --scrim: rgba(14, 6, 10, 0.6);
+  color-scheme: dark;
+}
+
 [data-theme="light"] {
   --bg: #f4f5f8;
   --surface: #ffffff;

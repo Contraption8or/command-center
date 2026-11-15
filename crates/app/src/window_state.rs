@@ -170,7 +170,7 @@ pub fn use_window_persistence() {
         #[cfg(windows)]
         {
             if let Some(s) = placement::read(&win) {
-                store.set_setting(KEY, &s.encode());
+                store.set_setting_quiet(KEY, &s.encode());
             }
             if closing {
                 let _ = store.peek(|db| db.checkpoint());
@@ -191,7 +191,7 @@ pub fn use_window_persistence() {
                 s = Saved { x: p.x, y: p.y, w: size.width, h: size.height, maximized: false };
             }
         }
-        store.set_setting(KEY, &s.encode());
+        store.set_setting_quiet(KEY, &s.encode());
     });
 }
 
@@ -259,15 +259,6 @@ mod scale_tests {
     }
 }
 
-/// Title bar colours per theme: (caption background, caption text, window border), matching
-/// `--bg` / `--text` / `--border` in style.css so the native title bar blends into the app.
-fn titlebar_colors(dark: bool) -> ((u8, u8, u8), (u8, u8, u8), (u8, u8, u8)) {
-    if dark {
-        ((0x0e, 0x10, 0x14), (0xe6, 0xe8, 0xee), (0x26, 0x2b, 0x36))
-    } else {
-        ((0xf4, 0xf5, 0xf8), (0x17, 0x1a, 0x21), (0xe3, 0xe6, 0xec))
-    }
-}
 
 /// Colour the real Windows title bar to match the theme (Windows 11; on Windows 10 only the
 /// dark/light frame applies), and paint the 1px window border in the background colour, so it doesn't show as a
@@ -278,20 +269,19 @@ pub fn use_themed_titlebar() {
     let win = use_window();
     let w2 = win.clone();
     use_effect(move || {
-        let dark = *ui.theme.read() == crate::state::Theme::Dark;
-        apply_frame(&win, dark);
+        apply_frame(&win, *ui.theme.read());
     });
-    // Windows can redraw the frame with its own accent border on focus changes and snaps:
-    // re-apply ours whenever that happens.
+    // Windows can redraw the frame with its own accent border when focus changes: re-apply
+    // ours then. (Not on every resize step: that made dragging a snap divider laggy.)
     use_wry_event_handler(move |event, _| {
         use dioxus::desktop::tao::event::{Event, WindowEvent};
-        if let Event::WindowEvent { event: WindowEvent::Focused(_) | WindowEvent::Resized(_), .. } = event {
-            apply_frame(&w2, *ui.theme.peek() == crate::state::Theme::Dark);
+        if let Event::WindowEvent { event: WindowEvent::Focused(true), .. } = event {
+            apply_frame(&w2, *ui.theme.peek());
         }
     });
 }
 
-fn apply_frame(win: &dioxus::desktop::DesktopContext, dark: bool) {
+fn apply_frame(win: &dioxus::desktop::DesktopContext, theme: crate::state::Theme) {
     #[cfg(windows)]
     {
         use dioxus::desktop::tao::platform::windows::WindowExtWindows;
@@ -302,7 +292,7 @@ fn apply_frame(win: &dioxus::desktop::DesktopContext, dark: bool) {
         use windows_sys::Win32::UI::Controls::MARGINS;
         let hwnd = win.hwnd() as _;
         let colorref = |(r, g, b): (u8, u8, u8)| -> u32 { r as u32 | (g as u32) << 8 | (b as u32) << 16 };
-        let (caption, text, _border) = titlebar_colors(dark);
+        let (caption, text, dark) = (theme.bg_rgb(), theme.text_rgb(), theme.is_dark());
         // The border is painted in the app's background colour, so it reads as part of the
         // window: no coloured or see-through line along the screen edge when snapped.
         let set = |attr: i32, value: u32| {
@@ -323,7 +313,7 @@ fn apply_frame(win: &dioxus::desktop::DesktopContext, dark: bool) {
         unsafe { DwmExtendFrameIntoClientArea(hwnd, &margins) };
     }
     #[cfg(not(windows))]
-    let _ = (win, dark);
+    let _ = (win, theme);
 }
 
 /// The top bar's close button: save the window placement and flush the database first,
@@ -331,7 +321,7 @@ fn apply_frame(win: &dioxus::desktop::DesktopContext, dark: bool) {
 pub fn close_app(store: &crate::store::Store, win: &dioxus::desktop::DesktopContext) {
     #[cfg(windows)]
     if let Some(s) = placement::read(win) {
-        store.set_setting(KEY, &s.encode());
+        store.set_setting_quiet(KEY, &s.encode());
     }
     let _ = store.peek(|db| db.checkpoint());
     win.close();

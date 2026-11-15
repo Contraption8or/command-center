@@ -61,7 +61,7 @@ cargo test --workspace             # unit tests (all core logic is tested withou
 
 - **Sample data:** the app starts with realistic sample data (Minecraft-channel projects, tasks, events, habits and so on), dated around today. When you're ready, go to **Settings → Data → Sample data → Clear**. Only sample rows are removed; anything you've added stays.
 - **Global hotkey:** the default is `Ctrl+Alt+Space`. If another program already uses it, Settings → Shortcuts shows a warning; type another combination there and press **Apply**. See [Changing the global hotkey](#changing-the-global-hotkey).
-- **Theme and clock:** dark theme and a 12-hour clock are the defaults. Change either in **Settings → Appearance**.
+- **Theme and clock:** dark theme and a 12-hour clock are the defaults. Change either in **Settings → Appearance**. Themes: **Dark**, **Light** and **Plum** (the warm plum palette from Plum Pomodoro); `Ctrl+K` → *Theme: …* switches too, and `Ctrl+Shift+L` toggles light and dark.
 
 ## Overview and window
 

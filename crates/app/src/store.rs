@@ -51,6 +51,14 @@ impl Store {
     pub fn set_setting(&self, key: &str, value: &str) {
         let _ = self.write(|db| db.set_setting(key, value));
     }
+
+    /// Save a setting nothing on screen shows (e.g. the window position) without re-rendering.
+    pub fn set_setting_quiet(&self, key: &str, value: &str) {
+        if let Err(e) = self.peek(|db| db.set_setting(key, value)) {
+            let mut err = self.error;
+            err.set(Some(format!("{e:#}")));
+        }
+    }
 }
 
 pub fn use_store() -> Store {

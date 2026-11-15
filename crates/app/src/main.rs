@@ -48,7 +48,8 @@ fn main() {
     let webview_dir = db.path().parent().map(|p| p.join("webview")).unwrap_or_default();
     let window = window_state::builder(&db);
     // Paint the window in the saved theme's background so there is no flash on start.
-    let bg = if db.setting("theme").as_deref() == Some("light") { (244, 245, 248, 255) } else { (14, 16, 20, 255) };
+    let (r, g, b) = crate::state::Theme::parse(db.setting("theme").as_deref()).bg_rgb();
+    let bg = (r, g, b, 255);
     BOOT_DB.with(|cell| *cell.borrow_mut() = Some(db));
     let config = Config::new()
         .with_window(window)

@@ -18,17 +18,44 @@ pub enum View {
 pub enum Theme {
     Dark,
     Light,
+    /// Warm dark plum, matching Plum Pomodoro.
+    Plum,
 }
 
 impl Theme {
+    pub const ALL: [(Theme, &'static str); 3] = [(Theme::Dark, "Dark"), (Theme::Light, "Light"), (Theme::Plum, "Plum")];
     pub fn as_str(self) -> &'static str {
         match self {
             Theme::Dark => "dark",
             Theme::Light => "light",
+            Theme::Plum => "plum",
         }
     }
     pub fn parse(s: Option<&str>) -> Self {
-        if s == Some("light") { Theme::Light } else { Theme::Dark }
+        match s {
+            Some("light") => Theme::Light,
+            Some("plum") => Theme::Plum,
+            _ => Theme::Dark,
+        }
+    }
+    pub fn is_dark(self) -> bool {
+        self != Theme::Light
+    }
+    /// Window background (`--bg`), painted before the page loads so there is no flash.
+    pub fn bg_rgb(self) -> (u8, u8, u8) {
+        match self {
+            Theme::Dark => (0x0e, 0x10, 0x14),
+            Theme::Light => (0xf4, 0xf5, 0xf8),
+            Theme::Plum => (0x21, 0x13, 0x18),
+        }
+    }
+    /// Text colour (`--text`).
+    pub fn text_rgb(self) -> (u8, u8, u8) {
+        match self {
+            Theme::Dark => (0xe6, 0xe8, 0xee),
+            Theme::Light => (0x17, 0x1a, 0x21),
+            Theme::Plum => (0xf3, 0xe8, 0xec),
+        }
     }
 }
 
@@ -108,6 +135,7 @@ pub enum Action {
     Open(View),
     QuickAdd(&'static str),
     ToggleTheme,
+    SetTheme(Theme),
     Run(fn(&Store, Ui)),
     /// Open a widget's full view focused on one of its items (from palette search).
     OpenItem(&'static str, i64),
@@ -147,9 +175,14 @@ pub fn run_action(action: Action, store: &Store, mut ui: Ui) {
         Action::QuickAdd(prefill) => ui.open_quick_add(prefill),
         Action::ToggleTheme => {
             ui.palette.set(false);
-            let next = if *ui.theme.peek() == Theme::Dark { Theme::Light } else { Theme::Dark };
+            let next = if *ui.theme.peek() == Theme::Light { Theme::Dark } else { Theme::Light };
             ui.theme.set(next);
             store.set_setting("theme", next.as_str());
+        }
+        Action::SetTheme(t) => {
+            ui.palette.set(false);
+            ui.theme.set(t);
+            store.set_setting("theme", t.as_str());
         }
         Action::Run(f) => {
             ui.palette.set(false);
