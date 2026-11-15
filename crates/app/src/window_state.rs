@@ -52,10 +52,12 @@ pub fn builder(db: &Db) -> WindowBuilder {
         // No Windows frame or title bar (like Discord): the app draws its own window
         // buttons in the top bar, and content reaches the screen edge when snapped.
         .with_decorations(false);
+    // (No tao undecorated shadow: it insets the client area, which leaves a see-through
+    // 1px strip along the screen edge when snapped. The shadow comes from apply_frame.)
     #[cfg(windows)]
     let base = {
         use dioxus::desktop::tao::platform::windows::WindowBuilderExtWindows;
-        base.with_undecorated_shadow(true)
+        base.with_undecorated_shadow(false)
     };
     match db.setting(KEY).as_deref().and_then(Saved::parse) {
         Some(s) => base
@@ -294,8 +296,10 @@ fn apply_frame(win: &dioxus::desktop::DesktopContext, dark: bool) {
     {
         use dioxus::desktop::tao::platform::windows::WindowExtWindows;
         use windows_sys::Win32::Graphics::Dwm::{
-            DwmSetWindowAttribute, DWMWA_BORDER_COLOR, DWMWA_CAPTION_COLOR, DWMWA_TEXT_COLOR, DWMWA_USE_IMMERSIVE_DARK_MODE,
+            DwmExtendFrameIntoClientArea, DwmSetWindowAttribute, DWMWA_BORDER_COLOR, DWMWA_CAPTION_COLOR, DWMWA_TEXT_COLOR,
+            DWMWA_USE_IMMERSIVE_DARK_MODE, DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND,
         };
+        use windows_sys::Win32::UI::Controls::MARGINS;
         let hwnd = win.hwnd() as _;
         let colorref = |(r, g, b): (u8, u8, u8)| -> u32 { r as u32 | (g as u32) << 8 | (b as u32) << 16 };
         let (caption, text, _border) = titlebar_colors(dark);
@@ -309,6 +313,14 @@ fn apply_frame(win: &dioxus::desktop::DesktopContext, dark: bool) {
         set(DWMWA_CAPTION_COLOR, colorref(caption));
         set(DWMWA_TEXT_COLOR, colorref(text));
         set(DWMWA_BORDER_COLOR, colorref(caption));
+        // Frameless window: a 1px frame extended into the client area gives it the system drop
+        // shadow, and Windows 11 rounds the corners (squared again when snapped or maximised).
+        // Unlike tao's own shadow option, this keeps the client area the full window, so a
+        // snapped window meets the screen edge with no see-through strip.
+        set(DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUND as u32);
+        let margins = MARGINS { cxLeftWidth: 1, cxRightWidth: 1, cyTopHeight: 1, cyBottomHeight: 1 };
+        // SAFETY: valid HWND; margins outlives the call.
+        unsafe { DwmExtendFrameIntoClientArea(hwnd, &margins) };
     }
     #[cfg(not(windows))]
     let _ = (win, dark);
@@ -324,3 +336,4 @@ pub fn close_app(store: &crate::store::Store, win: &dioxus::desktop::DesktopCont
     let _ = store.peek(|db| db.checkpoint());
     win.close();
 }
+
