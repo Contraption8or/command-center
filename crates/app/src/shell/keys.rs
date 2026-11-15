@@ -68,6 +68,18 @@ document.addEventListener('click', (e) => {
     send('open-url:' + link.getAttribute('href'));
   }
 }, true);
+// Frameless window: drag the top bar or empty side-rail space to move the window (Windows'
+// own move, so snapping works); double-click there to maximise or restore.
+let lastDown = 0, lastX = 0, lastY = 0;
+document.addEventListener('mousedown', (e) => {
+  if (e.button !== 0 || !e.target.closest('[data-drag]')) return;
+  if (e.target.closest('button, input, textarea, select, a, kbd, [data-nodrag]')) return;
+  e.preventDefault();
+  const now = Date.now();
+  const again = now - lastDown < 450 && Math.abs(e.clientX - lastX) < 6 && Math.abs(e.clientY - lastY) < 6;
+  lastDown = again ? 0 : now; lastX = e.clientX; lastY = e.clientY;
+  send(again ? 'win-max' : 'win-drag');
+});
 // Allow drops anywhere in-page, and never let a dropped file navigate the window away.
 document.addEventListener('dragover', (e) => e.preventDefault());
 document.addEventListener('drop', (e) => e.preventDefault());
@@ -105,6 +117,10 @@ pub fn use_key_bridge() {
                             }
                         }
                     }
+                    "win-drag" => {
+                        let _ = win.drag_window();
+                    }
+                    "win-max" => win.set_maximized(!win.is_maximized()),
                     "new-note" => crate::widgets::notes::new_note(&store, ui),
                     m if m.starts_with("open-url:") => open_url(&m["open-url:".len()..], ui),
                     "esc" => {

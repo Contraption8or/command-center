@@ -101,7 +101,7 @@ fn Rail() -> Element {
     split::use_split_bridge();
     let view = *ui.view.read();
     rsx! {
-        nav { class: "rail",
+        nav { class: "rail", "data-drag": "",
             div { class: "logo" }
             RailButton { icon: icons::OVERVIEW, tip: "Overview  Ctrl+0", active: view == View::Overview, to: View::Overview }
             for (i, w) in REGISTRY.iter().enumerate() {
@@ -149,7 +149,7 @@ fn TopBar() -> Element {
     };
     let date = ui.today.read().format("%A, %B %-d").to_string();
     rsx! {
-        header { class: "topbar",
+        header { class: "topbar", "data-drag": "",
             if view != View::Overview {
                 button { class: "back-btn", onclick: move |_| ui.open(View::Overview), Icon { d: icons::ARROW_LEFT } }
             }
@@ -171,6 +171,7 @@ fn TopBar() -> Element {
                     kbd { "Ctrl K" }
                 }
             }
+            WindowControls {}
         }
     }
 }
@@ -270,4 +271,33 @@ fn view_key(v: View) -> (String, View) {
         View::Settings => "settings".to_string(),
     };
     (k, v)
+}
+
+/// Minimise / maximise / close, drawn by the app since the window has no Windows title bar.
+#[component]
+fn WindowControls() -> Element {
+    let win = dioxus::desktop::use_window();
+    let store = use_store();
+    let mut maximized = use_signal(|| win.is_maximized());
+    let w = win.clone();
+    dioxus::desktop::use_wry_event_handler(move |event, _| {
+        use dioxus::desktop::tao::event::{Event, WindowEvent};
+        if let Event::WindowEvent { event: WindowEvent::Resized(_), .. } = event {
+            let m = w.is_maximized();
+            if *maximized.peek() != m {
+                maximized.set(m);
+            }
+        }
+    });
+    let (w_min, w_max, w_close) = (win.clone(), win.clone(), win);
+    rsx! {
+        div { class: "win-controls",
+            button { class: "win-btn", title: "Minimize", onclick: move |_| w_min.set_minimized(true), Icon { d: icons::WIN_MIN } }
+            button { class: "win-btn", title: if maximized() { "Restore" } else { "Maximize" },
+                onclick: move |_| w_max.set_maximized(!w_max.is_maximized()),
+                Icon { d: if maximized() { icons::WIN_RESTORE } else { icons::WIN_MAX } }
+            }
+            button { class: "win-btn close", title: "Close", onclick: move |_| crate::window_state::close_app(&store, &w_close), Icon { d: icons::WIN_CLOSE } }
+        }
+    }
 }

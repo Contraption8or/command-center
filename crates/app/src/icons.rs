@@ -36,3 +36,7 @@ pub fn Icon(d: &'static str) -> Element {
 }
 pub const PENCIL: &str = "M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4";
 pub const CHECK: &str = "M5 12.5l4.5 4.5L19 7.5";
+pub const WIN_MIN: &str = "M6.5 12h11";
+pub const WIN_MAX: &str = "M7 7h10v10H7z";
+pub const WIN_RESTORE: &str = "M7 9.5h7.5V17H7zM9.5 9.5V7H17v7.5h-2.5";
+pub const WIN_CLOSE: &str = "M7 7l10 10M17 7L7 17";

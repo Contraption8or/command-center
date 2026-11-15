@@ -48,7 +48,15 @@ pub fn builder(db: &Db) -> WindowBuilder {
     let base = WindowBuilder::new()
         .with_title(if cfg!(debug_assertions) { "Command Center (dev)" } else { "Command Center" })
         .with_min_inner_size(LogicalSize::new(820.0, 560.0))
-        .with_window_icon(Some(icon()));
+        .with_window_icon(Some(icon()))
+        // No Windows frame or title bar (like Discord): the app draws its own window
+        // buttons in the top bar, and content reaches the screen edge when snapped.
+        .with_decorations(false);
+    #[cfg(windows)]
+    let base = {
+        use dioxus::desktop::tao::platform::windows::WindowBuilderExtWindows;
+        base.with_undecorated_shadow(true)
+    };
     match db.setting(KEY).as_deref().and_then(Saved::parse) {
         Some(s) => base
             .with_inner_size(PhysicalSize::new(s.w, s.h))
@@ -304,4 +312,15 @@ fn apply_frame(win: &dioxus::desktop::DesktopContext, dark: bool) {
     }
     #[cfg(not(windows))]
     let _ = (win, dark);
+}
+
+/// The top bar's close button: save the window placement and flush the database first,
+/// since closing this way skips the usual close-request event.
+pub fn close_app(store: &crate::store::Store, win: &dioxus::desktop::DesktopContext) {
+    #[cfg(windows)]
+    if let Some(s) = placement::read(win) {
+        store.set_setting(KEY, &s.encode());
+    }
+    let _ = store.peek(|db| db.checkpoint());
+    win.close();
 }
