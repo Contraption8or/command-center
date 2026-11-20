@@ -100,6 +100,7 @@ pub fn Settings() -> Element {
             }
             super::layout_editor::LayoutEditor {}
             crate::widgets::assistant::AssistantSettings {}
+            ReminderSettings {}
             div { class: "panel",
                 h3 { "Shortcuts" }
                 div { class: "row",
@@ -327,5 +328,48 @@ fn switch_data_folder(store: &Store, ui: Ui, dir: std::path::PathBuf) {
             crate::restart();
         }
         Err(e) => ui.error(format!("Couldn't change the data folder: {e:#}")),
+    }
+}
+
+/// Settings → Reminders: turn desktop reminders on or off, and send a test one.
+#[component]
+fn ReminderSettings() -> Element {
+    let store = use_store();
+    let ui = use_ui();
+    let on = { let _ = store.read(|_| ()); crate::reminders::enabled(&store) };
+    let blocked = crate::notify::blocked_by_windows();
+    let (s_on, s_off) = (store.clone(), store.clone());
+    rsx! {
+        div { class: "panel",
+            h3 { "Reminders" }
+            div { class: "row",
+                span { class: "label", "Desktop reminders" }
+                div { class: "value",
+                    div { class: "seg",
+                        button { class: if on { "on" }, onclick: move |_| s_on.set_setting(crate::reminders::ENABLED_KEY, "1"), "On" }
+                        button { class: if !on { "on" }, onclick: move |_| s_off.set_setting(crate::reminders::ENABLED_KEY, "0"), "Off" }
+                    }
+                    button { class: "btn",
+                        onclick: move |_| {
+                            let body = cc_core::reminders::finish_line("play Minecraft", Some(60));
+                            match crate::notify::show("“Record Debug World” is due in an hour", &body) {
+                                Ok(()) => ui.notify("Test reminder sent"),
+                                Err(e) => ui.error(format!("Couldn't show a notification: {e}")),
+                            }
+                        },
+                        "Send a test"
+                    }
+                }
+            }
+            if blocked {
+                div { class: "row",
+                    span { class: "label", "" }
+                    div { class: "value",
+                        span { class: "chip warn", "Windows notifications are turned off" }
+                        button { class: "btn", onclick: move |_| { let _ = std::process::Command::new("explorer").arg("ms-settings:notifications").spawn(); }, "Open Windows settings" }
+                    }
+                }
+            }
+        }
     }
 }

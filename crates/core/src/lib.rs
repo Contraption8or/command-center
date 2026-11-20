@@ -8,6 +8,7 @@ pub mod db;
 pub mod markdown;
 pub mod model;
 pub mod quick_add;
+pub mod reminders;
 pub mod seed;
 pub mod time;
 pub mod tz;

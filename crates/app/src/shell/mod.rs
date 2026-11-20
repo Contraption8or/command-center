@@ -42,6 +42,7 @@ pub fn Shell() -> Element {
             ui.error(format!("Couldn't save: {e}"));
         }
     });
+    crate::reminders::use_reminders();
     keys::use_key_bridge();
     keys::use_global_quick_add();
     crate::window_state::use_window_persistence();

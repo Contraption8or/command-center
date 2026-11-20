@@ -4,6 +4,8 @@
 mod icon_art;
 mod icons;
 mod layout;
+mod notify;
+mod reminders;
 mod shell;
 mod state;
 mod store;
@@ -44,6 +46,9 @@ fn main() {
     }
     if let Err(e) = cc_core::backup::auto_backup(&db, &cc_core::backup::backup_dir(&db), today) {
         eprintln!("automatic backup failed: {e:#}");
+    }
+    if let Some(dir) = db.path().parent() {
+        notify::setup(dir);
     }
     let webview_dir = db.path().parent().map(|p| p.join("webview")).unwrap_or_default();
     let window = window_state::builder(&db);

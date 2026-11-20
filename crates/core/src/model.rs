@@ -28,6 +28,9 @@ pub fn apply_quick_add(db: &Db, entry: &QuickAdd) -> Result<Created> {
         QuickAdd::Task(t) => {
             let project = t.project_query.as_deref().and_then(|q| find_project(db, q));
             let id = tasks::add_steps(db, &t.title, t.scheduled_for, t.due, project.as_ref().map(|p| p.0), t.steps)?;
+            if t.due_time.is_some() {
+                tasks::set_due_time(db, id, t.due_time)?;
+            }
             Ok(Created::Task { id, project: project.map(|p| p.1) })
         }
         QuickAdd::Note(body) => {

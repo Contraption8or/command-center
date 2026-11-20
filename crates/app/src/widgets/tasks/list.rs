@@ -89,10 +89,16 @@ fn TaskRow(task: Task, order: Vec<i64>, compact: bool) -> Element {
         drop_class
     );
 
+    let h12 = *ui.h12.read();
     let due = task.due_date.map(|d| {
         let cls = if task.is_overdue(today) { "chip bad" } else if task.is_due_today(today) { "chip warn" } else { "chip" };
-        (cls, day_label(d, today))
+        let label = match task.due_time {
+            Some(t) => format!("{} {}", day_label(d, today), cc_core::model::events::fmt_time(t, h12)),
+            None => day_label(d, today),
+        };
+        (cls, label)
     });
+    let daily = (!task.done).then_some(task.remind_daily).flatten().map(|t| cc_core::model::events::fmt_time(t, h12));
     let carried = (!task.done && task.carried_count > 0).then_some(task.carried_count);
 
     // Step tasks advance one step per click; plain tasks toggle done.
@@ -251,6 +257,7 @@ fn TaskRow(task: Task, order: Vec<i64>, compact: bool) -> Element {
                     }
                 }
                 if let Some((cls, label)) = due { span { class: "{cls}", title: "Due", Icon { d: icons::FLAG } "{label}" } }
+                if let Some(t) = daily.clone() { span { class: "chip bell", title: "Daily reminder at {t}", Icon { d: icons::BELL } } }
             }
             if !compact && !task.done {
                 div { class: "row-actions",
@@ -286,6 +293,16 @@ fn TaskDetail(task: Task, on_delete: EventHandler<()>) -> Element {
 
     let (s1, s2, s3, s4, s5, s6) = (store.clone(), store.clone(), store.clone(), store.clone(), store.clone(), store.clone());
     let s_steps = store.clone();
+    let (s_dt, s_rd, s_rw) = (store.clone(), store.clone(), store.clone());
+    let hm = |t: chrono::NaiveTime| t.format("%H:%M").to_string();
+    let due_time_val = task.due_time.map(hm).unwrap_or_default();
+    let daily_val = task.remind_daily.map(hm).unwrap_or_default();
+    let mut reward = use_signal(|| task.reward.clone());
+    // What the reminder will say, so the reward's wording can be checked as you type.
+    let preview = {
+        let mins = task.due_time.is_some().then_some(60);
+        cc_core::reminders::finish_line(&reward.read(), mins)
+    };
     let steps_total = task.steps_total;
     let parse_date = |v: &str| NaiveDate::parse_from_str(v, "%Y-%m-%d").ok();
 
@@ -309,6 +326,19 @@ fn TaskDetail(task: Task, on_delete: EventHandler<()>) -> Element {
                     input { r#type: "date", value: "{due_val}",
                         onchange: move |e| { let _ = s3.write(|db| tasks::set_due(db, id, parse_date(&e.value()))); } }
                 }
+                label { "at"
+                    input { r#type: "time", value: "{due_time_val}", title: "Deadline time (reminders an hour and 5 minutes before)",
+                        onchange: move |e| {
+                            let t = parse_time(&e.value());
+                            let _ = s_dt.write(|db| {
+                                // A time with no date means today.
+                                if t.is_some() && tasks::get(db, id).is_some_and(|x| x.due_date.is_none()) {
+                                    tasks::set_due(db, id, Some(today))?;
+                                }
+                                tasks::set_due_time(db, id, t)
+                            });
+                        } }
+                }
                 label { "On list"
                     input { r#type: "date", value: "{day_val}",
                         onchange: move |e| if let Some(d) = parse_date(&e.value()) { let _ = s4.write(|db| tasks::reschedule(db, id, d)); } }
@@ -328,8 +358,29 @@ fn TaskDetail(task: Task, on_delete: EventHandler<()>) -> Element {
                 }
                 button { class: "btn danger", onclick: move |_| on_delete.call(()), "Delete" }
             }
+            div { class: "detail-fields",
+                label { "Remind daily at"
+                    input { r#type: "time", value: "{daily_val}", title: "A reminder every day at this time until it's done",
+                        onchange: move |e| { let _ = s_rd.write(|db| tasks::set_remind_daily(db, id, parse_time(&e.value()))); } }
+                }
+                label { class: "reward-field", "Reward for finishing"
+                    input { value: "{reward}", placeholder: "play Minecraft, pizza, an episode of something…", spellcheck: "false",
+                        oninput: move |e| { reward.set(e.value()); let _ = s_rw.write(|db| tasks::set_reward(db, id, &e.value())); } }
+                }
+            }
+            if !reward.read().trim().is_empty() || task.remind_daily.is_some() || task.due_time.is_some() {
+                div { class: "reminder-preview",
+                    Icon { d: icons::BELL }
+                    span { "{preview}" }
+                }
+            }
         }
     }
+}
+
+/// `HH:MM` from a time input (empty = none).
+fn parse_time(v: &str) -> Option<chrono::NaiveTime> {
+    chrono::NaiveTime::parse_from_str(v, "%H:%M").ok()
 }
 
 /// Inline "add a task" field. Accepts the quick-add tokens (!due, @day, #project).
@@ -347,7 +398,8 @@ pub fn AddTask(compact: bool, #[props(default)] project: Option<i64>) -> Element
                 parts.push(day_label(t.scheduled_for, today));
             }
             if let Some(d) = t.due {
-                parts.push(format!("due {}", day_label(d, today).to_lowercase()));
+                let at = t.due_time.map(|x| format!(" {}", cc_core::model::events::fmt_time(x, *ui.h12.peek()))).unwrap_or_default();
+                parts.push(format!("due {}{at}", day_label(d, today).to_lowercase()));
             }
             if t.steps > 1 {
                 parts.push(format!("{} steps", t.steps));
@@ -382,7 +434,14 @@ pub fn AddTask(compact: bool, #[props(default)] project: Option<i64>) -> Element
                     };
                     let Some(t) = draft else { return };
                     let project = t.project_query.as_deref().and_then(|q| store.peek(|db| find_project(db, q))).map(|p| p.0).or(project);
-                    match store.write(|db| tasks::add_steps(db, &t.title, t.scheduled_for, t.due, project, t.steps)) {
+                    let due_time = t.due_time;
+                    match store.write(|db| {
+                        let id = tasks::add_steps(db, &t.title, t.scheduled_for, t.due, project, t.steps)?;
+                        if due_time.is_some() {
+                            tasks::set_due_time(db, id, due_time)?;
+                        }
+                        Ok(id)
+                    }) {
                         Ok(_) => {
                             text.set(String::new());
                             if t.scheduled_for != today {

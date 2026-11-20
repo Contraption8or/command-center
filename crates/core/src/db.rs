@@ -11,6 +11,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("migrations/002_task_steps.sql"),
     include_str!("migrations/003_event_color.sql"),
     include_str!("migrations/004_event_done.sql"),
+    include_str!("migrations/005_task_reminders.sql"),
 ];
 
 /// Environment variable that overrides the data directory (handy for testing).

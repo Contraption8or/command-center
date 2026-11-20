@@ -7,7 +7,7 @@
 use crate::db::Db;
 use crate::time::now_ts;
 use anyhow::Result;
-use chrono::NaiveDate;
+use chrono::{NaiveDate, NaiveTime};
 use rusqlite::{params, Row};
 
 /// Gap between consecutive `position` values, so most inserts need no renumbering.
@@ -29,6 +29,12 @@ pub struct Task {
     /// Steps for multi-part tasks ("Edit 3 hours" = 3). Plain tasks have 1.
     pub steps_total: i64,
     pub steps_done: i64,
+    /// Time of day the task is due (with `due_date`; no time = any time that day).
+    pub due_time: Option<NaiveTime>,
+    /// Remind every day at this time until the task is done.
+    pub remind_daily: Option<NaiveTime>,
+    /// What you get for finishing ("play Minecraft"), worked into reminder text.
+    pub reward: String,
 }
 
 impl Task {
@@ -48,11 +54,13 @@ impl Task {
 }
 
 const SELECT: &str = "SELECT t.id, t.title, t.notes, t.project_id, p.name, p.color, t.due_date,
-        t.scheduled_for, t.position, t.done_at IS NOT NULL, t.carried_count, t.steps_total, t.steps_done
+        t.scheduled_for, t.position, t.done_at IS NOT NULL, t.carried_count, t.steps_total, t.steps_done,
+        t.due_time, t.remind_daily, t.reward
      FROM tasks t LEFT JOIN projects p ON p.id = t.project_id";
 
 fn from_row(r: &Row) -> rusqlite::Result<Task> {
     let date = |s: Option<String>| s.and_then(|s| NaiveDate::parse_from_str(&s, "%Y-%m-%d").ok());
+    let time = |s: Option<String>| s.and_then(|s| NaiveTime::parse_from_str(&s, "%H:%M").ok());
     Ok(Task {
         id: r.get(0)?,
         title: r.get(1)?,
@@ -67,6 +75,9 @@ fn from_row(r: &Row) -> rusqlite::Result<Task> {
         carried_count: r.get(10)?,
         steps_total: r.get(11)?,
         steps_done: r.get(12)?,
+        due_time: time(r.get(13)?),
+        remind_daily: time(r.get(14)?),
+        reward: r.get(15)?,
     })
 }
 
@@ -248,8 +259,8 @@ pub fn delete(db: &Db, id: i64) -> Result<Option<Task>> {
 /// Re-insert a task removed by [`delete`] (undo).
 pub fn restore(db: &Db, t: &Task) -> Result<()> {
     db.conn.execute(
-        "INSERT INTO tasks(id,title,notes,project_id,due_date,scheduled_for,position,done_at,carried_count,created_at,steps_total,steps_done)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)",
+        "INSERT INTO tasks(id,title,notes,project_id,due_date,scheduled_for,position,done_at,carried_count,created_at,steps_total,steps_done,due_time,remind_daily,reward)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)",
         params![
             t.id,
             t.title,
@@ -262,7 +273,10 @@ pub fn restore(db: &Db, t: &Task) -> Result<()> {
             t.carried_count,
             now_ts(),
             t.steps_total,
-            t.steps_done
+            t.steps_done,
+            t.due_time.map(hm),
+            t.remind_daily.map(hm),
+            t.reward
         ],
     )?;
     Ok(())
@@ -385,4 +399,25 @@ mod step_tests {
         restore(&db, &d).unwrap();
         assert_eq!(get(&db, id).unwrap().steps_total, 2);
     }
+}
+
+fn hm(t: NaiveTime) -> String {
+    t.format("%H:%M").to_string()
+}
+
+/// Deadline time of day (`None` = any time on the due date).
+pub fn set_due_time(db: &Db, id: i64, time: Option<NaiveTime>) -> Result<()> {
+    db.conn.execute("UPDATE tasks SET due_time = ?1 WHERE id = ?2", params![time.map(hm), id])?;
+    Ok(())
+}
+
+/// Daily reminder time (`None` = no daily reminder).
+pub fn set_remind_daily(db: &Db, id: i64, time: Option<NaiveTime>) -> Result<()> {
+    db.conn.execute("UPDATE tasks SET remind_daily = ?1 WHERE id = ?2", params![time.map(hm), id])?;
+    Ok(())
+}
+
+pub fn set_reward(db: &Db, id: i64, reward: &str) -> Result<()> {
+    db.conn.execute("UPDATE tasks SET reward = ?1 WHERE id = ?2", params![reward.trim(), id])?;
+    Ok(())
 }

@@ -32,6 +32,8 @@ pub struct TaskDraft {
     pub title: String,
     pub scheduled_for: NaiveDate,
     pub due: Option<NaiveDate>,
+    /// Deadline time: `!fri 5pm`, or `!5pm` for today.
+    pub due_time: Option<NaiveTime>,
     /// Text after `#`, to be matched against project names by the caller.
     pub project_query: Option<String>,
     /// Steps from an `x3` token (1 = plain task).
@@ -61,11 +63,22 @@ pub fn parse(input: &str, today: NaiveDate) -> Option<QuickAdd> {
     let mut scheduled = None;
     let mut project = None;
     let mut steps = 1;
+    let mut due_time = None;
+    let mut after_due = false;
     for word in input.split_whitespace() {
+        let was_after_due = std::mem::take(&mut after_due);
         if let Some(n) = parse_steps(word) {
             steps = n;
         } else if let Some(d) = word.strip_prefix('!').and_then(|w| parse_date(w, today)) {
             due = Some(d);
+            after_due = true;
+        } else if let Some(t) = word.strip_prefix('!').and_then(|w| parse_time(&w.to_lowercase(), false)) {
+            // `!5pm`: due today at that time (or on the date given elsewhere).
+            due_time = Some(t);
+            due = due.or(Some(today));
+        } else if let Some(t) = was_after_due.then(|| parse_time(&word.to_lowercase(), false)).flatten() {
+            // `!fri 5pm`: a time right after the due date.
+            due_time = Some(t);
         } else if let Some(d) = word.strip_prefix('@').and_then(|w| parse_date(w, today)) {
             scheduled = Some(d);
         } else if let Some(p) = word.strip_prefix('#').filter(|p| !p.is_empty()) {
@@ -82,6 +95,7 @@ pub fn parse(input: &str, today: NaiveDate) -> Option<QuickAdd> {
         title,
         scheduled_for: scheduled.unwrap_or(today),
         due,
+        due_time,
         project_query: project,
         steps,
     }))
@@ -207,6 +221,19 @@ fn strip_prefix_ci<'a>(s: &'a str, prefix: &str) -> Option<&'a str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn deadline_times() {
+        let Some(QuickAdd::Task(t)) = parse("Record Debug World !fri 5pm", wed()) else { panic!() };
+        assert_eq!(t.title, "Record Debug World");
+        assert_eq!(t.due, NaiveDate::from_ymd_opt(2026, 11, 13));
+        assert_eq!(t.due_time, NaiveTime::from_hms_opt(17, 0, 0));
+        let Some(QuickAdd::Task(t)) = parse("Export !5:30pm", wed()) else { panic!() };
+        assert_eq!((t.due, t.due_time), (Some(wed()), NaiveTime::from_hms_opt(17, 30, 0)));
+        // A bare number after the date is part of the title, not a time.
+        let Some(QuickAdd::Task(t)) = parse("Edit !fri 3 clips", wed()) else { panic!() };
+        assert_eq!((t.title.as_str(), t.due_time), ("Edit 3 clips", None));
+    }
 
     fn wed() -> NaiveDate {
         NaiveDate::from_ymd_opt(2026, 11, 11).unwrap() // a Wednesday

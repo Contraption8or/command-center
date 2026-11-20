@@ -92,6 +92,7 @@ cargo test --workspace             # unit tests (all core logic is tested withou
 - **Add field:** accepts the [quick-add tokens](#quick-add-syntax) `!fri`, `@tomorrow` and `#project`. A hint shows how your text was read, and focus stays in the field so you can add several tasks in a row.
 - **Detail editor:** click a task to edit its title, notes, due date, which day's list it's on, and its project, or to delete it. Changes save as you type.
 - **Step tasks:** add `x3` (2–99) to a task, e.g. `Edit ep 8 x3`, to split it into 3 steps. The check circle becomes a progress ring: each click checks off one step (`1/3 · 33%`), right-click (or `Shift+Space`) undoes one, and the last step completes the task. Change the number of steps in the detail editor. Projects that track progress from tasks count partial steps.
+- **Deadlines and reminders:** in a task's editor, set a **due time** next to the due date (or type `!fri 5pm` / `!5pm` when adding it), **Remind daily at** a time, and a **Reward for finishing**. You get a desktop reminder an hour and 5 minutes before a deadline, and every day at the daily time until it's done. The reward is worked into the reminder as a proper sentence ("Finish it in the next hour and you can play Minecraft.", "…and you've earned pizza.", "…and you can spend some time gaming."), and the editor previews exactly what it will say. Rows show the due time and a bell for daily reminders.
 - **Reorder:** drag a task by its handle, or select a row and press `Ctrl+↑` / `Ctrl+↓`.
 - **Carry-over:** at startup and whenever the date changes, unfinished tasks from earlier days move to the top of today's list. The app checks the date every 30 seconds and when the window gets focus.
   - A ↻ chip shows how many days a task has slipped, and turns amber at 3 or more.
@@ -101,6 +102,8 @@ cargo test --workspace             # unit tests (all core logic is tested withou
 - **Delete:** a toast offers **Undo** (or `Ctrl+Z`) for about 7 seconds.
 
 ### Upcoming events
+
+**Reminders:** a desktop notification 5 minutes before a timed event starts (not for all-day or checked-off events). Every reminder also appears inside the app and flashes the taskbar button, so it isn't missed. Turn them off, or send a test, in **Settings → Reminders**; if Windows notifications are switched off for the PC, that section says so and opens the right Windows settings page.
 
 - **Card:** the next 7 days as a compact agenda, skipping empty days.
 - **Full view** (`Ctrl+2`) has three views (your choice is remembered). Use ‹ **Today** › to move between weeks or months.
@@ -264,6 +267,7 @@ Chat with Claude about your plans (`Ctrl+7`, the ✦ icon in the rail, or `Ctrl+
 Color-grade ep 7 !fri #survival     task on today's list, due Friday, linked to "Hardcore Survival S3"
 Record door build @tomorrow         task on tomorrow's list
 Renew domain !+5                    task due five days from now
+Record Debug World !fri 5pm         task due Friday at 5 PM (`!5pm` = today at 5 PM)
 Edit ep 8 x3                        task with 3 steps (each check-off = 33%)
 n Ideas: world-shrinks challenge    note (also "note …", "n:", "note:")
 e Dentist @fri 9:15-10              event Friday 9:15–10:00 (also "event …")

@@ -803,3 +803,10 @@ body.tab-dragging .rail-btn .tip { opacity: 0 !important; }
 .win-btn:hover { background: var(--surface-3); color: var(--text); }
 .win-btn.close:hover { background: #e81123; color: #fff; }
 .win-btn:active { transform: none; }
+
+/* ---- task reminders ----------------------------------------------------- */
+.detail-fields .reward-field { flex: 1; min-width: 220px; }
+.reminder-preview { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-2); background: var(--accent-soft); border-radius: 8px; padding: 7px 10px; }
+.reminder-preview .icon { width: 14px; height: 14px; color: var(--accent); flex: none; }
+.chip.bell { padding: 2px 5px; color: var(--accent); }
+.chip.bell .icon { width: 12px; height: 12px; }
