@@ -92,7 +92,6 @@ pub fn TzPanel(event: Option<Event>) -> Element {
         };
         let tag = day_tag(there, base);
         let date = there.format("%a %b %-d").to_string();
-        let value = there.format("%H:%M").to_string();
         let retime = retime.clone();
         let store = store.clone();
         let zones_now = zones.clone();
@@ -104,8 +103,8 @@ pub fn TzPanel(event: Option<Event>) -> Element {
                 }
                 div { class: "tz-time",
                     if editable {
-                        input { class: "tz-input", r#type: "time", value: "{value}",
-                            onchange: move |e| if let Ok(t) = NaiveTime::parse_from_str(&e.value(), "%H:%M") { retime(zone, there.date().and_time(t)); } }
+                        crate::date_picker::TimePicker { value: Some(there.time()), compact: true,
+                            onchange: move |t: Option<NaiveTime>| if let Some(t) = t { retime(zone, there.date().and_time(t)); } }
                     } else {
                         span { class: "tz-clock", "{time}" }
                     }

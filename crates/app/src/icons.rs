@@ -41,3 +41,4 @@ pub const WIN_MAX: &str = "M7 7h10v10H7z";
 pub const WIN_RESTORE: &str = "M7 9.5h7.5V17H7zM9.5 9.5V7H17v7.5h-2.5";
 pub const WIN_CLOSE: &str = "M7 7l10 10M17 7L7 17";
 pub const BELL: &str = "M6.5 16v-5a5.5 5.5 0 0 1 11 0v5l1.5 2h-14zM10 20.5a2 2 0 0 0 4 0";
+pub const CLOCK: &str = "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2";

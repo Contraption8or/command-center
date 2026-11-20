@@ -62,7 +62,7 @@ fn full() -> Element {
                     span { class: "muted", "{open} open · {done} done" }
                 }
                 AddTask { compact: false }
-                TaskList { tasks: today_list, compact: false }
+                TaskList { tasks: today_list, compact: false, day: Some(today) }
             }
             section { class: "panel",
                 div { class: "panel-head", h3 { "Upcoming" } }
@@ -75,7 +75,7 @@ fn full() -> Element {
                             span { "{day_label(day, today)}" }
                             span { class: "muted", "{day.format(\"%b %-d\")}" }
                         }
-                        TaskList { tasks: list, compact: false }
+                        TaskList { tasks: list, compact: false, day: Some(day) }
                     }
                 }
             }

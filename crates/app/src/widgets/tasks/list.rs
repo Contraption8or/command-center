@@ -11,6 +11,8 @@ use dioxus::prelude::*;
 /// Task whose detail editor is open (shared so the card can open a task in the full view).
 pub static EXPANDED: GlobalSignal<Option<i64>> = Signal::global(|| None);
 static DRAGGING: GlobalSignal<Option<i64>> = Signal::global(|| None);
+/// The day list a task from another day is being dragged over (highlighted as a drop target).
+static OVER_DAY: GlobalSignal<Option<NaiveDate>> = Signal::global(|| None);
 static OVER: GlobalSignal<Option<i64>> = Signal::global(|| None);
 
 /// "Today", "Tomorrow", "Fri", or "Nov 20".
@@ -31,7 +33,14 @@ fn focus_task(id: i64) {
 }
 
 #[component]
-pub fn TaskList(tasks: Vec<Task>, compact: bool, #[props(default = true)] reorderable: bool) -> Element {
+pub fn TaskList(
+    tasks: Vec<Task>,
+    compact: bool,
+    #[props(default = true)] reorderable: bool,
+    /// The day this list shows. Tasks from other days dropped on it move to this day.
+    #[props(default)] day: Option<NaiveDate>,
+) -> Element {
+    let store = use_store();
     let mut show_done = use_signal(|| false);
     let open: Vec<Task> = tasks.iter().filter(|t| !t.done).cloned().collect();
     let done: Vec<Task> = tasks.iter().filter(|t| t.done).cloned().collect();
@@ -40,9 +49,37 @@ pub fn TaskList(tasks: Vec<Task>, compact: bool, #[props(default = true)] reorde
     let n_done = done.len();
 
     rsx! {
-        div { class: "task-list", "data-list": "",
+        div {
+            class: if day.is_some() && OVER_DAY() == day { "task-list drop-target" } else { "task-list" },
+            "data-list": "",
+            ondragover: {
+                let order = order.clone();
+                move |e: DragEvent| {
+                    e.prevent_default();
+                    if day.is_some() && DRAGGING().is_some_and(|d| !order.contains(&d)) && OVER_DAY() != day {
+                        *OVER_DAY.write() = day;
+                    }
+                }
+            },
+
+            ondrop: {
+                let order = order.clone();
+                move |e: DragEvent| {
+                    e.prevent_default();
+                    let dragged = DRAGGING();
+                    *DRAGGING.write() = None;
+                    *OVER.write() = None;
+                    *OVER_DAY.write() = None;
+                    // Dropped on the list itself (not a row): move to this day, at the bottom.
+                    if let (Some(d), Some(day)) = (dragged, day) {
+                        if !order.contains(&d) {
+                            let _ = store.write(|db| tasks::reschedule(db, d, day));
+                        }
+                    }
+                }
+            },
             for t in open {
-                TaskRow { key: "{t.id}", task: t.clone(), order: order.clone(), compact }
+                TaskRow { key: "{t.id}", task: t.clone(), order: order.clone(), compact, day }
             }
             if n_done > 0 {
                 if compact {
@@ -53,7 +90,7 @@ pub fn TaskList(tasks: Vec<Task>, compact: bool, #[props(default = true)] reorde
                     }
                     if show_done() {
                         for t in done {
-                            TaskRow { key: "{t.id}", task: t.clone(), order: Vec::new(), compact }
+                            TaskRow { key: "{t.id}", task: t.clone(), order: Vec::new(), compact, day }
                         }
                     }
                 }
@@ -63,7 +100,7 @@ pub fn TaskList(tasks: Vec<Task>, compact: bool, #[props(default = true)] reorde
 }
 
 #[component]
-fn TaskRow(task: Task, order: Vec<i64>, compact: bool) -> Element {
+fn TaskRow(task: Task, order: Vec<i64>, compact: bool, day: Option<NaiveDate>) -> Element {
     let store = use_store();
     let ui = use_ui();
     let today = *ui.today.read();
@@ -76,7 +113,8 @@ fn TaskRow(task: Task, order: Vec<i64>, compact: bool) -> Element {
         (Some(d), Some(o)) if o == id && d != id => {
             let from = order.iter().position(|&x| x == d);
             let to = order.iter().position(|&x| x == id);
-            if from > to { " drop-above" } else { " drop-below" }
+            // A task from another day goes in above the row it's dropped on.
+            if from.is_none() || from > to { " drop-above" } else { " drop-below" }
         }
         (Some(d), _) if d == id => " dragging",
         _ => "",
@@ -138,6 +176,13 @@ fn TaskRow(task: Task, order: Vec<i64>, compact: bool) -> Element {
             let _ = store.write(|db| tasks::reschedule(db, id, today + Duration::days(1)));
         }
     };
+    let future = task.scheduled_for > today;
+    let to_today = {
+        let store = store.clone();
+        move || {
+            let _ = store.write(|db| tasks::reschedule(db, id, today));
+        }
+    };
     let open_detail = move || {
         if compact {
             *EXPANDED.write() = Some(id);
@@ -178,23 +223,34 @@ fn TaskRow(task: Task, order: Vec<i64>, compact: bool) -> Element {
             "data-task-id": "{id}",
             draggable: can_drag,
             ondragstart: move |_| { *DRAGGING.write() = Some(id); },
-            ondragend: move |_| { *DRAGGING.write() = None; *OVER.write() = None; },
+            ondragend: move |_| { *DRAGGING.write() = None; *OVER.write() = None; *OVER_DAY.write() = None; },
             ondragover: move |e| {
                 e.prevent_default();
-                if DRAGGING().is_some_and(|d| order.contains(&d)) && OVER() != Some(id) {
+                let ok = DRAGGING().is_some_and(|d| order.contains(&d) || (day.is_some() && !order.is_empty()));
+                if ok && OVER() != Some(id) {
                     *OVER.write() = Some(id);
                 }
             },
             ondrop: move |e| {
                 e.prevent_default();
+                e.stop_propagation();
                 let dragged = DRAGGING();
                 *DRAGGING.write() = None;
                 *OVER.write() = None;
+                *OVER_DAY.write() = None;
                 if let (Some(d), Some(to)) = (dragged, order_drop.iter().position(|&x| x == id)) {
                     if order_drop.contains(&d) && d != id {
                         let new = tasks::moved(&order_drop, d, to);
                         let _ = store.write(|db| tasks::reorder(db, &new));
+                    } else if let (false, Some(day)) = (order_drop.contains(&d), day) {
+                        // From another day: move it here, just above this row.
+                        let mut new = order_drop.clone();
+                        new.insert(to, d);
+                        let _ = store.write(|db| { tasks::reschedule(db, d, day)?; tasks::reorder(db, &new) });
                     }
+                } else if let (Some(d), Some(day)) = (dragged, day) {
+                    // Dropped on a done row: just move it to this day.
+                    let _ = store.write(|db| tasks::reschedule(db, d, day));
                 }
             },
             onkeydown: move |e| {
@@ -261,9 +317,16 @@ fn TaskRow(task: Task, order: Vec<i64>, compact: bool) -> Element {
             }
             if !compact && !task.done {
                 div { class: "row-actions",
-                    button { class: "icon-btn", tabindex: -1, title: "Move to tomorrow  (T)",
-                        onclick: move |e| { e.stop_propagation(); tomorrow_c(); },
-                        Icon { d: icons::ARROW_RIGHT }
+                    if future {
+                        button { class: "icon-btn", tabindex: -1, title: "Move to today",
+                            onclick: move |e| { e.stop_propagation(); to_today(); },
+                            Icon { d: icons::ARROW_LEFT }
+                        }
+                    } else {
+                        button { class: "icon-btn", tabindex: -1, title: "Move to tomorrow  (T)",
+                            onclick: move |e| { e.stop_propagation(); tomorrow_c(); },
+                            Icon { d: icons::ARROW_RIGHT }
+                        }
                     }
                     button { class: "icon-btn", tabindex: -1, title: "Delete  (Del)",
                         onclick: move |e| { e.stop_propagation(); delete_c(); },
@@ -291,10 +354,7 @@ fn TaskDetail(task: Task, on_delete: EventHandler<()>) -> Element {
 
     let (s1, s2, s3, s4, s5, s6) = (store.clone(), store.clone(), store.clone(), store.clone(), store.clone(), store.clone());
     let s_steps = store.clone();
-    let (s_dt, s_rd, s_rw) = (store.clone(), store.clone(), store.clone());
-    let hm = |t: chrono::NaiveTime| t.format("%H:%M").to_string();
-    let due_time_val = task.due_time.map(hm).unwrap_or_default();
-    let daily_val = task.remind_daily.map(hm).unwrap_or_default();
+    let (s_dt, s_rd, s_rw, s_today) = (store.clone(), store.clone(), store.clone(), store.clone());
     let mut reward = use_signal(|| task.reward.clone());
     // What the reminder will say, so the reward's wording can be checked as you type.
     let preview = {
@@ -323,10 +383,9 @@ fn TaskDetail(task: Task, on_delete: EventHandler<()>) -> Element {
                     crate::date_picker::DatePicker { value: task.due_date, clearable: true,
                         onchange: move |d| { let _ = s3.write(|db| tasks::set_due(db, id, d)); } }
                 }
-                label { "at"
-                    input { r#type: "time", value: "{due_time_val}", title: "Deadline time (reminders an hour and 5 minutes before)",
-                        onchange: move |e| {
-                            let t = parse_time(&e.value());
+                div { class: "dl-field", "at"
+                    crate::date_picker::TimePicker { value: task.due_time, clearable: true,
+                        onchange: move |t: Option<chrono::NaiveTime>| {
                             let _ = s_dt.write(|db| {
                                 // A time with no date means today.
                                 if t.is_some() && tasks::get(db, id).is_some_and(|x| x.due_date.is_none()) {
@@ -353,12 +412,15 @@ fn TaskDetail(task: Task, on_delete: EventHandler<()>) -> Element {
                 if task.scheduled_for <= today && !task.done {
                     button { class: "btn", onclick: move |_| { let _ = s6.write(|db| tasks::reschedule(db, id, today + Duration::days(1))); }, "Tomorrow" }
                 }
+                if task.scheduled_for > today && !task.done {
+                    button { class: "btn", onclick: move |_| { let _ = s_today.write(|db| tasks::reschedule(db, id, today)); }, "Today" }
+                }
                 button { class: "btn danger", onclick: move |_| on_delete.call(()), "Delete" }
             }
             div { class: "detail-fields",
-                label { "Remind daily at"
-                    input { r#type: "time", value: "{daily_val}", title: "A reminder every day at this time until it's done",
-                        onchange: move |e| { let _ = s_rd.write(|db| tasks::set_remind_daily(db, id, parse_time(&e.value()))); } }
+                div { class: "dl-field", "Remind daily at"
+                    crate::date_picker::TimePicker { value: task.remind_daily, clearable: true,
+                        onchange: move |t| { let _ = s_rd.write(|db| tasks::set_remind_daily(db, id, t)); } }
                 }
                 label { class: "reward-field", "Reward for finishing"
                     input { value: "{reward}", placeholder: "play Minecraft, pizza, an episode of something…", spellcheck: "false",
@@ -373,11 +435,6 @@ fn TaskDetail(task: Task, on_delete: EventHandler<()>) -> Element {
             }
         }
     }
-}
-
-/// `HH:MM` from a time input (empty = none).
-fn parse_time(v: &str) -> Option<chrono::NaiveTime> {
-    chrono::NaiveTime::parse_from_str(v, "%H:%M").ok()
 }
 
 /// Inline "add a task" field. Accepts the quick-add tokens (!due, @day, #project).

@@ -57,10 +57,7 @@ pub fn EventEditor(event: Event, autofocus: bool) -> Element {
     };
     let (mut sv1, mut sv2, mut sv3, mut sv4, mut sv5, mut sv6, mut sv7, mut sv8) =
         (save.clone(), save.clone(), save.clone(), save.clone(), save.clone(), save.clone(), save.clone(), save);
-    let pt = |v: &str| NaiveTime::parse_from_str(v, "%H:%M").ok();
     let all_day = base.start.is_none();
-    let start_v = base.start.map(|t| t.format("%H:%M").to_string()).unwrap_or_default();
-    let end_v = base.end.map(|t| t.format("%H:%M").to_string()).unwrap_or_default();
     let s_del = store.clone();
 
     rsx! {
@@ -106,10 +103,10 @@ pub fn EventEditor(event: Event, autofocus: bool) -> Element {
                 }
             } else {
                 div { class: "ev-fields",
-                    label { class: "pd-field",
+                    div { class: "pd-field",
                         span { class: "pd-label", "Start" }
-                        input { class: "pd-input", r#type: "time", value: "{start_v}",
-                            onchange: move |e| if let Some(t) = pt(&e.value()) {
+                        crate::date_picker::TimePicker { value: base.start,
+                            onchange: move |t: Option<NaiveTime>| if let Some(t) = t {
                                 sv5(Box::new(move |i| {
                                     // Keep the same duration when the start moves.
                                     if let (Some(s), Some(en)) = (i.start, i.end) {
@@ -121,10 +118,10 @@ pub fn EventEditor(event: Event, autofocus: bool) -> Element {
                                 }));
                             } }
                     }
-                    label { class: "pd-field",
+                    div { class: "pd-field",
                         span { class: "pd-label", "End" }
-                        input { class: "pd-input", r#type: "time", value: "{end_v}",
-                            onchange: move |e| { let t = pt(&e.value()); sv6(Box::new(move |i| { i.end = t; i.end_date = None; })); } }
+                        crate::date_picker::TimePicker { value: base.end, clearable: true,
+                            onchange: move |t| sv6(Box::new(move |i| { i.end = t; i.end_date = None; })) }
                     }
                 }
             }

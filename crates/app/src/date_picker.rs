@@ -4,7 +4,7 @@
 
 use crate::icons::{self, Icon};
 use crate::state::use_ui;
-use chrono::{Datelike, Duration, NaiveDate};
+use chrono::{Datelike, Duration, NaiveDate, NaiveTime, Timelike};
 use dioxus::prelude::*;
 
 #[component]
@@ -95,6 +95,102 @@ pub fn DatePicker(
                                 }
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Themed time picker: a button showing the time that opens hour / minute (/ AM-PM)
+/// columns in the app's colours. Follows the 12- or 24-hour clock setting.
+#[component]
+pub fn TimePicker(
+    value: Option<NaiveTime>,
+    onchange: EventHandler<Option<NaiveTime>>,
+    /// Offer "Clear" (for optional times).
+    #[props(default)]
+    clearable: bool,
+    /// Smaller button, for tight spots like the timezone panel.
+    #[props(default)]
+    compact: bool,
+) -> Element {
+    let ui = use_ui();
+    let h12 = *ui.h12.read();
+    let mut open = use_signal(|| None::<(f64, f64)>);
+    let label = value.map(|t| cc_core::model::events::fmt_time(t, h12)).unwrap_or_else(|| "No time".into());
+    let cur = value.unwrap_or(NaiveTime::from_hms_opt(9, 0, 0).unwrap());
+    let set = move |t: NaiveTime| {
+        if Some(t) != value {
+            onchange.call(Some(t));
+        }
+    };
+    let at = |h: u32, m: u32| NaiveTime::from_hms_opt(h, m, 0).unwrap();
+    let pm = cur.hour() >= 12;
+    let hours: Vec<(u32, String)> = if h12 {
+        // Shown 12, 1 … 11 in the current half of the day.
+        (0..12).map(|i| (if pm { i + 12 } else { i }, (if i == 0 { 12 } else { i }).to_string())).collect()
+    } else {
+        (0..24).map(|h| (h, format!("{h:02}"))).collect()
+    };
+    let mut minutes: Vec<u32> = (0..60).step_by(5).collect();
+    if !minutes.contains(&cur.minute()) {
+        minutes.push(cur.minute());
+        minutes.sort();
+    }
+    let class = match (compact, value.is_some()) {
+        (true, true) => "time-field compact",
+        (true, false) => "time-field compact empty",
+        (false, true) => "time-field",
+        (false, false) => "time-field empty",
+    };
+
+    rsx! {
+        button {
+            class: "{class}",
+            r#type: "button",
+            onclick: move |e| { let p = e.client_coordinates(); open.set(Some((p.x, p.y))); },
+            if !compact { Icon { d: icons::CLOCK } }
+            span { "{label}" }
+        }
+        if let Some((x, y)) = open() {
+            div { class: "dp-scrim",
+                onclick: move |_| open.set(None),
+                oncontextmenu: move |e| { e.prevent_default(); open.set(None); },
+                div {
+                    class: "dp-pop tp-pop",
+                    style: "left: max(8px, min({x - 24.0}px, calc(100vw - 220px))); top: min({y + 16.0}px, calc(100vh - 290px));",
+                    onclick: move |e| e.stop_propagation(),
+                    // Bring the current hour and minute into view.
+                    onmounted: move |_| { document::eval("setTimeout(() => document.querySelectorAll('.tp-pop .sel').forEach(e => e.scrollIntoView({block: 'center'})), 0)"); },
+                    div { class: "tp-cols",
+                        div { class: "tp-col",
+                            for (h, text) in hours {
+                                button { key: "h{h}", class: if value.is_some() && cur.hour() == h { "tp-cell sel" } else { "tp-cell" },
+                                    onclick: move |_| set(at(h, cur.minute())), "{text}" }
+                            }
+                        }
+                        div { class: "tp-col",
+                            for m in minutes {
+                                button { key: "m{m}", class: if value.is_some() && cur.minute() == m { "tp-cell sel" } else { "tp-cell" },
+                                    onclick: move |_| set(at(cur.hour(), m)), "{m:02}" }
+                            }
+                        }
+                        if h12 {
+                            div { class: "tp-col ampm",
+                                button { class: if value.is_some() && !pm { "tp-cell sel" } else { "tp-cell" },
+                                    onclick: move |_| set(at(cur.hour() % 12, cur.minute())), "AM" }
+                                button { class: if value.is_some() && pm { "tp-cell sel" } else { "tp-cell" },
+                                    onclick: move |_| set(at(cur.hour() % 12 + 12, cur.minute())), "PM" }
+                            }
+                        }
+                    }
+                    div { class: "dp-foot",
+                        if clearable && value.is_some() {
+                            button { class: "dp-link", onclick: move |_| { open.set(None); onchange.call(None); }, "Clear" }
+                        }
+                        div { class: "grow" }
+                        button { class: "dp-link", onclick: move |_| open.set(None), "Done" }
                     }
                 }
             }

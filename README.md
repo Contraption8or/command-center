@@ -61,7 +61,7 @@ cargo test --workspace             # unit tests (all core logic is tested withou
 
 - **Sample data:** the app starts with realistic sample data (Minecraft-channel projects, tasks, events, habits and so on), dated around today. When you're ready, go to **Settings → Data → Sample data → Clear**. Only sample rows are removed; anything you've added stays.
 - **Global hotkey:** the default is `Ctrl+Alt+Space`. If another program already uses it, Settings → Shortcuts shows a warning; type another combination there and press **Apply**. See [Changing the global hotkey](#changing-the-global-hotkey).
-- **Dates** are picked with the app's own calendar popup (in your theme): arrows for months, **Today**, and **Clear** where a date is optional.
+- **Dates and times** are picked with the app's own popups (in your theme): a month calendar with **Today**, and hour / minute / AM-PM columns that follow your 12- or 24-hour clock setting, each with **Clear** where the value is optional.
 - **Theme and clock:** dark theme and a 12-hour clock are the defaults. Change either in **Settings → Appearance**. Themes: **Dark**, **Light** and **Plum** (the warm plum palette from Plum Pomodoro); `Ctrl+K` → *Theme: …* switches too, and `Ctrl+Shift+L` toggles light and dark.
 
 ## Overview and window
@@ -94,6 +94,7 @@ cargo test --workspace             # unit tests (all core logic is tested withou
 - **Detail editor:** click a task to edit its title, notes, due date, which day's list it's on, and its project, or to delete it. Changes save as you type.
 - **Step tasks:** add `x3` (2–99) to a task, e.g. `Edit ep 8 x3`, to split it into 3 steps. The check circle becomes a progress ring: each click checks off one step (`1/3 · 33%`), right-click (or `Shift+Space`) undoes one, and the last step completes the task. Change the number of steps in the detail editor. Projects that track progress from tasks count partial steps.
 - **Deadlines and reminders:** in a task's editor, set a **due time** next to the due date (or type `!fri 5pm` / `!5pm` when adding it), **Remind daily at** a time, and a **Reward for finishing**. You get a desktop reminder an hour and 5 minutes before a deadline, and every day at the daily time until it's done. The reward is worked into the reminder as a proper sentence ("Finish it in the next hour and you can play Minecraft.", "…and you've earned pizza.", "…and you can spend some time gaming."), and the editor previews exactly what it will say. Rows show the due time and a bell for daily reminders.
+- **Move tasks between days:** drag a task onto another day's list, such as from Upcoming → Tomorrow into **Today**; it lands where you drop it. Upcoming rows also have a ← **Move to today** button, and the editor has **Today** for future tasks (and **Tomorrow** for today's).
 - **Reorder:** drag a task by its handle, or select a row and press `Ctrl+↑` / `Ctrl+↓`.
 - **Carry-over:** at startup and whenever the date changes, unfinished tasks from earlier days move to the top of today's list. The app checks the date every 30 seconds and when the window gets focus.
   - A ↻ chip shows how many days a task has slipped, and turns amber at 3 or more.
