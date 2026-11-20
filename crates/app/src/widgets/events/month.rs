@@ -21,6 +21,7 @@ pub fn MonthView(anchor: NaiveDate) -> Element {
     let start = week_start(first);
     let end = start + Duration::days(41);
     let list = store.read(|db| events::between(db, start, end));
+    let due = store.read(|db| cc_core::model::tasks::due_between(db, start, end));
     let selected = SELECTED();
 
     rsx! {
@@ -34,7 +35,9 @@ pub fn MonthView(anchor: NaiveDate) -> Element {
                         let day = start + Duration::days(i);
                         let mut evs: Vec<_> = list.iter().filter(|e| !e.days_in(day, day).is_empty()).cloned().collect();
                         evs.sort_by_key(|e| (!e.all_day, e.starts_at));
-                        let more = evs.len().saturating_sub(MAX_PER_DAY);
+                        let dls: Vec<_> = due.iter().filter(|t| t.due_date == Some(day)).cloned().collect();
+                        let shown_dls = dls.len().min(MAX_PER_DAY);
+                        let more = (evs.len() + dls.len()).saturating_sub(MAX_PER_DAY);
                         let class = format!(
                             "m-day{}{}",
                             if day.month() != first.month() { " other" } else { "" },
@@ -52,7 +55,10 @@ pub fn MonthView(anchor: NaiveDate) -> Element {
                                     onclick: move |_| { *ANCHOR.write() = Some(day); show_week(); },
                                     "{day.day()}"
                                 }
-                                for e in evs.into_iter().take(MAX_PER_DAY) {
+                                for t in dls.into_iter().take(MAX_PER_DAY) {
+                                    super::DeadlineChip { key: "t{t.id}", task: t, class: "m-ev deadline", h12 }
+                                }
+                                for e in evs.into_iter().take(MAX_PER_DAY - shown_dls) {
                                     button {
                                         key: "{e.id}",
                                         class: if selected == Some(e.id) { "m-ev sel" } else if e.all_day { "m-ev allday" } else { "m-ev" },

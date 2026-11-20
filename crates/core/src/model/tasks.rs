@@ -421,3 +421,13 @@ pub fn set_reward(db: &Db, id: i64, reward: &str) -> Result<()> {
     db.conn.execute("UPDATE tasks SET reward = ?1 WHERE id = ?2", params![reward.trim(), id])?;
     Ok(())
 }
+
+/// Open tasks due between `from` and `to` (inclusive), for the calendar: date-only ones
+/// first, then by due time.
+pub fn due_between(db: &Db, from: NaiveDate, to: NaiveDate) -> Vec<Task> {
+    query(
+        db,
+        "WHERE t.done_at IS NULL AND t.due_date BETWEEN ?1 AND ?2 ORDER BY t.due_date, t.due_time IS NOT NULL, t.due_time, t.position",
+        params![from.to_string(), to.to_string()],
+    )
+}

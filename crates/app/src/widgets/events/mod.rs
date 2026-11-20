@@ -13,6 +13,7 @@ use crate::state::{use_ui, Action, Command, Ui, View};
 use crate::store::{use_store, Store};
 use crate::widgets::tasks::day_label;
 use cc_core::model::events::{self, Event, EventInput};
+use cc_core::model::tasks::{self, Task};
 use chrono::{Datelike, Duration, Local, NaiveDate, NaiveDateTime, NaiveTime, Timelike};
 use dioxus::prelude::*;
 
@@ -188,14 +189,20 @@ fn card() -> Element {
     let today = *use_ui().today.read();
     let to = today + Duration::days(6);
     let list = store.read(|db| events::between(db, today, to));
-    let days: Vec<_> = by_day(&list, today, to).into_iter().filter(|(_, v)| !v.is_empty()).collect();
+    let due = store.read(|db| tasks::due_between(db, today, to));
+    let days: Vec<_> = by_day(&list, today, to)
+        .into_iter()
+        .map(|(d, v)| (d, v, due.iter().filter(|t| t.due_date == Some(d)).cloned().collect::<Vec<_>>()))
+        .filter(|(_, v, t)| !v.is_empty() || !t.is_empty())
+        .collect();
     rsx! {
         div { class: "agenda compact", "data-list": "",
             if days.is_empty() { div { class: "muted empty-line", "Nothing in the next 7 days" } }
-            for (day, evs) in days {
+            for (day, evs, dls) in days {
                 div { key: "{day}", class: "ag-day",
                     div { class: "ag-head", span { "{heading(day, today)}" } span { class: "muted", "{day.format(\"%b %-d\")}" } }
                     for e in evs { EventRow { key: "{e.id}", event: e, compact: true } }
+                    for t in dls { DeadlineRow { key: "t{t.id}", task: t, compact: true } }
                 }
             }
         }
@@ -296,11 +303,12 @@ fn AgendaView(range: i64) -> Element {
     let today = *use_ui().today.read();
     let to = today + Duration::days(range - 1);
     let list = store.read(|db| events::between(db, today, to));
+    let due = store.read(|db| tasks::due_between(db, today, to));
     let days = by_day(&list, today, to);
     rsx! {
         div { class: "agenda", "data-list": "",
             for (day, evs) in days {
-                DayBlock { key: "{day}", day, events: evs }
+                DayBlock { key: "{day}", day, events: evs, deadlines: due.iter().filter(|t| t.due_date == Some(day)).cloned().collect::<Vec<_>>() }
             }
         }
     }
@@ -316,7 +324,7 @@ pub(crate) fn add_months(d: NaiveDate, n: i64) -> NaiveDate {
 }
 
 #[component]
-fn DayBlock(day: NaiveDate, events: Vec<Event>) -> Element {
+fn DayBlock(day: NaiveDate, events: Vec<Event>, deadlines: Vec<Task>) -> Element {
     let store = use_store();
     let ui = use_ui();
     let today = *ui.today.read();
@@ -329,8 +337,9 @@ fn DayBlock(day: NaiveDate, events: Vec<Event>) -> Element {
                 div { class: "grow" }
                 button { class: "icon-btn ag-add", title: "Add event on this day", onclick: move |_| create_on(&store, ui, day), Icon { d: icons::PLUS } }
             }
-            if events.is_empty() { div { class: "ag-empty" } }
+            if events.is_empty() && deadlines.is_empty() { div { class: "ag-empty" } }
             for e in events { EventRow { key: "{e.id}", event: e, compact: false } }
+            for t in deadlines { DeadlineRow { key: "t{t.id}", task: t, compact: false } }
         }
     }
 }
@@ -435,6 +444,56 @@ pub(crate) fn toggle_done(store: &Store, ui: Ui, id: i64, done: bool) {
             ui.notify_undo(format!("Checked off “{title}”"), move |s| {
                 let _ = s.write(|db| events::mark_undone(db, id));
             });
+        }
+    }
+}
+
+/// Open a task in the Tasks view (from a deadline shown on the calendar).
+fn open_task(store: &Store, ui: Ui, id: i64) {
+    crate::state::run_action(Action::OpenItem("tasks", id), store, ui);
+}
+
+/// A task deadline on the week or month grid: flag, optional time, title. Click to open it.
+#[component]
+pub(crate) fn DeadlineChip(task: Task, class: &'static str, h12: bool) -> Element {
+    let store = use_store();
+    let ui = use_ui();
+    let id = task.id;
+    let time = task.due_time.map(|t| events::fmt_time(t, h12));
+    let tip = match &time {
+        Some(t) => format!("Task due {t}: {}", task.title),
+        None => format!("Task due: {}", task.title),
+    };
+    rsx! {
+        button { class: "{class}", title: "{tip}",
+            ondoubleclick: move |e| e.stop_propagation(),
+            onclick: move |e| { e.stop_propagation(); open_task(&store, ui, id); },
+            Icon { d: icons::FLAG }
+            if let Some(t) = time { span { class: "dl-time", "{t}" } }
+            span { class: "dl-title", "{task.title}" }
+        }
+    }
+}
+
+/// A task deadline in the agenda lists, styled like an event row.
+#[component]
+fn DeadlineRow(task: Task, compact: bool) -> Element {
+    let store = use_store();
+    let ui = use_ui();
+    let h12 = *ui.h12.read();
+    let id = task.id;
+    let time = match task.due_time {
+        Some(t) if compact => events::fmt_time(t, h12),
+        Some(t) => format!("Due {}", events::fmt_time(t, h12)),
+        None => "Due".into(),
+    };
+    rsx! {
+        button { class: "ev-row deadline", "data-row": "", title: "Task deadline: open in Tasks",
+            onclick: move |_| open_task(&store, ui, id),
+            span { class: "ev-flag", Icon { d: icons::FLAG } }
+            span { class: "ev-time", "{time}" }
+            span { class: "ev-title", "{task.title}" }
+            if let Some(p) = task.project_name.clone() { if !compact { span { class: "chip", "{p}" } } }
         }
     }
 }

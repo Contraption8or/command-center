@@ -57,13 +57,10 @@ pub fn EventEditor(event: Event, autofocus: bool) -> Element {
     };
     let (mut sv1, mut sv2, mut sv3, mut sv4, mut sv5, mut sv6, mut sv7, mut sv8) =
         (save.clone(), save.clone(), save.clone(), save.clone(), save.clone(), save.clone(), save.clone(), save);
-    let pd = |v: &str| NaiveDate::parse_from_str(v, "%Y-%m-%d").ok();
     let pt = |v: &str| NaiveTime::parse_from_str(v, "%H:%M").ok();
     let all_day = base.start.is_none();
-    let date_v = base.date.to_string();
     let start_v = base.start.map(|t| t.format("%H:%M").to_string()).unwrap_or_default();
     let end_v = base.end.map(|t| t.format("%H:%M").to_string()).unwrap_or_default();
-    let end_date_v = base.end_date.filter(|d| *d > base.date).map(|d| d.to_string()).unwrap_or_default();
     let s_del = store.clone();
 
     rsx! {
@@ -84,10 +81,10 @@ pub fn EventEditor(event: Event, autofocus: bool) -> Element {
             }
 
             div { class: "ev-fields",
-                label { class: "pd-field",
+                div { class: "pd-field",
                     span { class: "pd-label", "Date" }
-                    input { class: "pd-input", r#type: "date", value: "{date_v}",
-                        onchange: move |e| if let Some(d) = pd(&e.value()) { sv2(Box::new(move |i| i.date = d)); } }
+                    crate::date_picker::DatePicker { value: Some(base.date),
+                        onchange: move |d: Option<NaiveDate>| if let Some(d) = d { sv2(Box::new(move |i| i.date = d)); } }
                 }
                 label { class: "pd-field check",
                     input { r#type: "checkbox", checked: all_day,
@@ -102,10 +99,10 @@ pub fn EventEditor(event: Event, autofocus: bool) -> Element {
                 }
             }
             if all_day {
-                label { class: "pd-field",
+                div { class: "pd-field",
                     span { class: "pd-label", "Until (optional)" }
-                    input { class: "pd-input", r#type: "date", value: "{end_date_v}", min: "{date_v}",
-                        onchange: move |e| { let d = pd(&e.value()); sv4(Box::new(move |i| i.end_date = d)); } }
+                    crate::date_picker::DatePicker { value: base.end_date.filter(|d| *d > base.date), clearable: true, min: Some(base.date),
+                        onchange: move |d| sv4(Box::new(move |i| i.end_date = d)) }
                 }
             } else {
                 div { class: "ev-fields",

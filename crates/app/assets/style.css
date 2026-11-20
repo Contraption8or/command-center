@@ -810,3 +810,36 @@ body.tab-dragging .rail-btn .tip { opacity: 0 !important; }
 .reminder-preview .icon { width: 14px; height: 14px; color: var(--accent); flex: none; }
 .chip.bell { padding: 2px 5px; color: var(--accent); }
 .chip.bell .icon { width: 12px; height: 12px; }
+
+/* ---- date picker --------------------------------------------------------- */
+.date-field {
+  display: inline-flex; align-items: center; gap: 7px; min-width: 140px; padding: 6px 10px; text-align: left;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); color: var(--text); font-size: 13px;
+}
+.date-field:hover { border-color: var(--border-strong); }
+.date-field .icon { width: 14px; height: 14px; color: var(--text-3); }
+.date-field.empty span { color: var(--text-3); }
+.dp-scrim { position: fixed; inset: 0; z-index: 75; }
+.dp-pop {
+  position: fixed; width: 252px; padding: 10px; border-radius: 12px; background: var(--surface);
+  border: 1px solid var(--border-strong); box-shadow: var(--shadow); animation: menu-in .14s var(--ease-pop, ease-out) backwards; transform-origin: top left;
+}
+.dp-head { display: flex; align-items: center; gap: 2px; padding: 0 2px 8px; }
+.dp-title { font-weight: 600; font-size: 13.5px; }
+.dp-head .grow { flex: 1; }
+.dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.dp-dow { text-align: center; font-size: 11px; color: var(--text-3); padding: 2px 0 4px; }
+.dp-day {
+  height: 30px; border: 0; border-radius: 8px; background: transparent; color: var(--text); font-size: 12.5px;
+  font-variant-numeric: tabular-nums; transition: background-color .12s, color .12s;
+}
+.dp-day:hover:not(:disabled) { background: var(--surface-3); }
+.dp-day.other { color: var(--text-3); }
+.dp-day.today { box-shadow: inset 0 0 0 1.5px var(--accent); color: var(--accent); font-weight: 600; }
+.dp-day.sel { background: var(--accent); color: #fff; font-weight: 600; box-shadow: none; }
+.dp-day:disabled { opacity: .3; cursor: default; }
+.dp-foot { display: flex; align-items: center; padding: 8px 2px 0; border-top: 1px solid var(--border); margin-top: 8px; }
+.dp-foot .grow { flex: 1; }
+.dp-link { border: 0; background: transparent; color: var(--accent); font-weight: 600; font-size: 12.5px; padding: 3px 6px; border-radius: 6px; }
+.dp-link:hover { background: var(--accent-soft); }
+.detail-fields .dl-field { display: flex; flex-direction: column; gap: 3px; font-size: 11.5px; color: var(--text-3); }

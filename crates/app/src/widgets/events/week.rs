@@ -57,6 +57,7 @@ if (grid) {
 
   grid.addEventListener('mousedown', (ev) => {
     if (ev.button !== 0) return;
+    if (ev.target.closest('.wk-deadline')) return; // task deadlines: plain click opens the task
     const block = ev.target.closest('.wk-ev');
     const col = ev.target.closest('.wk-col');
     if (!col) return;
@@ -169,6 +170,7 @@ pub fn WeekView(anchor: NaiveDate) -> Element {
     let monday = week_start(anchor);
     let days: Vec<NaiveDate> = (0..7).map(|i| monday + Duration::days(i)).collect();
     let list = store.read(|db| events::between(db, monday, monday + Duration::days(6)));
+    let deadlines = store.read(|db| cc_core::model::tasks::due_between(db, monday, monday + Duration::days(6)));
     // Re-render every minute (the shell's clock ticks), so the now-line and past states move.
     let _minute = *ui.clock.read();
     let now = Local::now().naive_local();
@@ -227,6 +229,9 @@ pub fn WeekView(anchor: NaiveDate) -> Element {
                 div { class: "wk-gutter small muted", "all-day" }
                 for d in days.iter().copied() {
                     div { key: "{d}", class: "wk-allday-cell",
+                        for t in deadlines.iter().filter(|t| t.due_date == Some(d) && t.due_time.is_none()).cloned() {
+                            super::DeadlineChip { key: "t{t.id}", task: t, class: "wk-chip deadline", h12 }
+                        }
                         for e in list.iter().filter(|e| e.all_day && e.days_in(d, d).len() == 1).cloned() {
                             button {
                                 key: "{e.id}",
@@ -289,6 +294,16 @@ pub fn WeekView(anchor: NaiveDate) -> Element {
                                                     div { class: "wk-ev-title", "{e.title}" }
                                                     if height >= 34 { div { class: "wk-ev-time", "{time}" } }
                                                     if e.is_manual() { div { class: "wk-resize" } }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    for t in deadlines.iter().filter(|t| t.due_date == Some(d) && t.due_time.is_some()).cloned() {
+                                        {
+                                            let m = t.due_time.map(|x| (x.hour() * 60 + x.minute()) as i64).unwrap_or(0);
+                                            rsx! {
+                                                div { key: "t{t.id}", class: "wk-deadline-wrap", style: "top: {m * HOUR_PX / 60}px",
+                                                    super::DeadlineChip { task: t, class: "wk-deadline", h12 }
                                                 }
                                             }
                                         }

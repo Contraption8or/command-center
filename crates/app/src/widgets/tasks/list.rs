@@ -287,8 +287,6 @@ fn TaskDetail(task: Task, on_delete: EventHandler<()>) -> Element {
     let mut title = use_signal(|| task.title.clone());
     let mut notes = use_signal(|| task.notes.clone());
     let projects = store.read(project_options);
-    let due_val = task.due_date.map(|d| d.to_string()).unwrap_or_default();
-    let day_val = task.scheduled_for.to_string();
     let proj_val = task.project_id.map(|p| p.to_string()).unwrap_or_default();
 
     let (s1, s2, s3, s4, s5, s6) = (store.clone(), store.clone(), store.clone(), store.clone(), store.clone(), store.clone());
@@ -304,7 +302,6 @@ fn TaskDetail(task: Task, on_delete: EventHandler<()>) -> Element {
         cc_core::reminders::finish_line(&reward.read(), mins)
     };
     let steps_total = task.steps_total;
-    let parse_date = |v: &str| NaiveDate::parse_from_str(v, "%Y-%m-%d").ok();
 
     rsx! {
         div { class: "task-detail",
@@ -322,9 +319,9 @@ fn TaskDetail(task: Task, on_delete: EventHandler<()>) -> Element {
                     input { r#type: "number", min: 1, max: 99, value: "{steps_total}", class: "steps-input",
                         onchange: move |e| if let Ok(n) = e.value().parse::<i64>() { let _ = s_steps.write(|db| tasks::set_steps(db, id, n)); } }
                 }
-                label { "Due"
-                    input { r#type: "date", value: "{due_val}",
-                        onchange: move |e| { let _ = s3.write(|db| tasks::set_due(db, id, parse_date(&e.value()))); } }
+                div { class: "dl-field", "Due"
+                    crate::date_picker::DatePicker { value: task.due_date, clearable: true,
+                        onchange: move |d| { let _ = s3.write(|db| tasks::set_due(db, id, d)); } }
                 }
                 label { "at"
                     input { r#type: "time", value: "{due_time_val}", title: "Deadline time (reminders an hour and 5 minutes before)",
@@ -339,9 +336,9 @@ fn TaskDetail(task: Task, on_delete: EventHandler<()>) -> Element {
                             });
                         } }
                 }
-                label { "On list"
-                    input { r#type: "date", value: "{day_val}",
-                        onchange: move |e| if let Some(d) = parse_date(&e.value()) { let _ = s4.write(|db| tasks::reschedule(db, id, d)); } }
+                div { class: "dl-field", "On list"
+                    crate::date_picker::DatePicker { value: Some(task.scheduled_for),
+                        onchange: move |d: Option<NaiveDate>| if let Some(d) = d { let _ = s4.write(|db| tasks::reschedule(db, id, d)); } }
                 }
                 label { "Project"
                     select {

@@ -115,3 +115,25 @@
 .ev-row.done .ev-time { color: var(--text-3); }
 .m-ev[data-done="1"] .m-title, .wk-ev[data-done="1"] .wk-ev-title, .wk-chip[data-done="1"] { text-decoration: line-through; }
 .m-ev[data-done="1"], .wk-ev[data-done="1"], .wk-chip[data-done="1"] { opacity: .55; }
+
+/* ---- task deadlines on the calendar ------------------------------------- */
+.wk-chip.deadline, .m-ev.deadline, .wk-deadline { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.wk-chip.deadline .icon, .m-ev.deadline .icon, .wk-deadline .icon { width: 11px; height: 11px; flex: none; }
+.dl-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.dl-time { flex: none; opacity: .8; font-size: 11px; }
+.wk-chip.deadline { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+.m-ev.deadline { color: var(--warn); border-left: 3px solid var(--warn); }
+.m-ev.deadline .dl-time { color: var(--text-3); }
+/* Timed deadline: a dashed line across the day at the due time, with a label. */
+.wk-deadline-wrap { position: absolute; left: 0; right: 0; height: 0; z-index: 3; pointer-events: none; }
+.wk-deadline-wrap::before { content: ""; position: absolute; left: 0; right: 0; top: 0; border-top: 1.5px dashed var(--warn); }
+.wk-deadline {
+  position: absolute; left: 4px; max-width: calc(100% - 8px); top: -9px; pointer-events: auto;
+  border: 0; border-radius: 5px; padding: 1px 6px; font-size: 11.5px; font-weight: 600;
+  background: var(--warn); color: #1a1408;
+}
+.wk-deadline .dl-time { opacity: .75; }
+.ev-row.deadline .ev-title { color: var(--text); }
+.ev-row.deadline .ev-time { color: var(--warn); }
+.ev-flag { width: 14px; height: 14px; margin: 0 -3px; flex: none; display: grid; place-items: center; color: var(--warn); }
+.ev-flag .icon { width: 12px; height: 12px; }

@@ -7,7 +7,6 @@ use crate::store::use_store;
 use crate::widgets::ProgressBar;
 use cc_core::model::goals::{self, fmt_num, Goal, GoalInput, Pace};
 use cc_core::model::project_options;
-use chrono::NaiveDate;
 use dioxus::prelude::*;
 
 pub fn pace_color(p: Pace) -> String {
@@ -130,7 +129,7 @@ fn GoalEditor(goal: Goal) -> Element {
         (save.clone(), save.clone(), save.clone(), save.clone(), save.clone(), save.clone(), save);
     let num = |v: String| v.trim().parse::<f64>().ok();
     let s_del = store.clone();
-    let deadline_v = goal.deadline.map(|d| d.to_string()).unwrap_or_default();
+    let deadline_d = goal.deadline;
 
     rsx! {
         div { class: "gc-editor",
@@ -169,10 +168,10 @@ fn GoalEditor(goal: Goal) -> Element {
                 }
             }
             div { class: "gc-grid",
-                label { class: "pd-field",
+                div { class: "pd-field",
                     span { class: "pd-label", "Deadline" }
-                    input { class: "pd-input", r#type: "date", value: "{deadline_v}",
-                        onchange: move |e| { let d = NaiveDate::parse_from_str(&e.value(), "%Y-%m-%d").ok(); s6(Box::new(move |i| i.deadline = d)); } }
+                    crate::date_picker::DatePicker { value: deadline_d, clearable: true,
+                        onchange: move |d| s6(Box::new(move |i| i.deadline = d)) }
                 }
                 label { class: "pd-field",
                     span { class: "pd-label", "Project" }
